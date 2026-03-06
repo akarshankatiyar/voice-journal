@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 235 33% 20%;
+
+    --card: 215 80% 95%;
+    --card-foreground: 235 33% 20%;
+
+    --popover: 0 0% 98%;
+    --popover-foreground: 235 33% 20%;
+
+    --primary: 215 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 60% 70%;
+    --secondary-foreground: 235 33% 20%;
+
+    --muted: 0 0% 80%;
+    --muted-foreground: 235 33% 50%;
+
+    --accent: 215 100% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 100% 50% / 0.2;
+    --input: 0 0% 95%;
+    --ring: 215 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom VoiceCollar tokens */
+    --gold: 42 100% 50%;
+    --gold-light: 44 100% 70%;
+    --gold-dim: 40 70% 45%;
+    --vc-blue: 215 100% 50%;
+    --vc-blue-light: 215 100% 70%;
+    --vc-blue-dim: 215 100% 30%;
+    --recording-red: 0 100% 50%;
+    --surface-elevated: 215 80% 90%;
+
+    --sidebar-background: 215 100% 98%;
+    --sidebar-foreground: 235 33% 40%;
+    --sidebar-primary: 215 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 80% 88%;
+    --sidebar-accent-foreground: 235 33% 20%;
+    --sidebar-border: 215 100% 50% / 0.2;
+    --sidebar-ring: 215 100% 50%;
+
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    @apply text-primary;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-primary/10 rounded-xl;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/5;
+  }
+
+  .gold-glow {
+    box-shadow: 0 0 20px hsl(42 58% 55% / 0.15), 0 0 60px hsl(42 58% 55% / 0.05);
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--gold))] to-[hsl(var(--gold-light))];
+  }
+}
+
+@layer utilities {
+  @keyframes pulse-recording {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(0 75% 58% / 0.4); }
+    50% { box-shadow: 0 0 0 12px hsl(0 75% 58% / 0); }
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(42 58% 55% / 0.3); }
+    50% { box-shadow: 0 0 0 16px hsl(42 58% 55% / 0); }
+  }
+
+  @keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .animate-pulse-recording {
+    animation: pulse-recording 1.5s ease-in-out infinite;
+  }
+
+  .animate-pulse-gold {
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+
+  .animate-blink {
+    animation: blink-cursor 1s step-end infinite;
+  }
+}
