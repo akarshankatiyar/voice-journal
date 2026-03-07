@@ -5,7 +5,7 @@ import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
-import { mockConversations, mockTasks, mockIdeas, mockAcademicNotes, mockMeetingNotes } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Lightbulb, Mic, GraduationCap, Users, CheckSquare, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -30,15 +30,19 @@ export default function Home() {
   const liveTranscript = useAppStore((s) => s.liveTranscript);
   const navigate = useNavigate();
   const { fetchDailySummary, dailySummary, isProcessing } = useAIProcessing();
+  const conversations = useConversationStore((s) => s.conversations);
+  const tasks = useConversationStore((s) => s.tasks);
+  const academicNotes = useConversationStore((s) => s.academicNotes);
+  const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const ideas = useConversationStore((s) => s.ideas);
 
-  const pendingTasks = mockTasks.filter(t => !t.isDone).length;
-  const lecturesCaptured = mockAcademicNotes.length;
-  const meetingsCaptured = mockMeetingNotes.length;
-  const ideasCaptured = mockIdeas.length;
+  const pendingTasks = tasks.filter(t => !t.isDone).length;
+  const lecturesCaptured = academicNotes.length;
+  const meetingsCaptured = meetingNotes.length;
+  const ideasCaptured = ideas.length;
 
-  // Find most recent conversation time
-  const lastCaptured = mockConversations.length > 0
-    ? timeAgoShort(mockConversations[0].startedAt)
+  const lastCaptured = conversations.length > 0
+    ? timeAgoShort(conversations[0].startedAt)
     : null;
 
   const [summaryText, setSummaryText] = useState<string>('');
@@ -48,7 +52,7 @@ export default function Home() {
 
   const loadDailySummary = useCallback(async () => {
     setSummaryLoading(true);
-    const dayData = mockConversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
+    const dayData = conversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
     if (dayData.length > 10) {
       const result = await fetchDailySummary(dayData);
       if (result) {
@@ -68,7 +72,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [loadDailySummary]);
 
-  const hasData = mockConversations.length > 0;
+  const hasData = conversations.length > 0;
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -174,7 +178,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="space-y-3">
-          {mockConversations.slice(0, 3).map(conv => (
+          {conversations.slice(0, 3).map(conv => (
             <ConversationCard key={conv.id} conv={conv} />
           ))}
         </div>
