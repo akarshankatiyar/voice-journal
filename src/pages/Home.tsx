@@ -52,7 +52,7 @@ export default function Home() {
 
   const loadDailySummary = useCallback(async () => {
     setSummaryLoading(true);
-    const dayData = mockConversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
+    const dayData = conversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
     if (dayData.length > 10) {
       const result = await fetchDailySummary(dayData);
       if (result) {
