@@ -72,7 +72,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [loadDailySummary]);
 
-  const hasData = mockConversations.length > 0;
+  const hasData = conversations.length > 0;
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
