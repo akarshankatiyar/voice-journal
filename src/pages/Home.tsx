@@ -30,15 +30,19 @@ export default function Home() {
   const liveTranscript = useAppStore((s) => s.liveTranscript);
   const navigate = useNavigate();
   const { fetchDailySummary, dailySummary, isProcessing } = useAIProcessing();
+  const conversations = useConversationStore((s) => s.conversations);
+  const tasks = useConversationStore((s) => s.tasks);
+  const academicNotes = useConversationStore((s) => s.academicNotes);
+  const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const ideas = useConversationStore((s) => s.ideas);
 
-  const pendingTasks = mockTasks.filter(t => !t.isDone).length;
-  const lecturesCaptured = mockAcademicNotes.length;
-  const meetingsCaptured = mockMeetingNotes.length;
-  const ideasCaptured = mockIdeas.length;
+  const pendingTasks = tasks.filter(t => !t.isDone).length;
+  const lecturesCaptured = academicNotes.length;
+  const meetingsCaptured = meetingNotes.length;
+  const ideasCaptured = ideas.length;
 
-  // Find most recent conversation time
-  const lastCaptured = mockConversations.length > 0
-    ? timeAgoShort(mockConversations[0].startedAt)
+  const lastCaptured = conversations.length > 0
+    ? timeAgoShort(conversations[0].startedAt)
     : null;
 
   const [summaryText, setSummaryText] = useState<string>('');
