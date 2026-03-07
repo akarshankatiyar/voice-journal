@@ -1,11 +1,13 @@
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { MicButton } from '@/components/recording/MicButton';
 import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { useAppStore } from '@/store/useAppStore';
-import { mockConversations, mockTasks, mockIdeas } from '@/data/mockData';
-import { MessageSquare, CheckSquare, Lightbulb, Calendar, GraduationCap, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useAIProcessing } from '@/hooks/useAIProcessing';
+import { mockConversations, mockTasks, mockIdeas, mockAcademicNotes, mockMeetingNotes } from '@/data/mockData';
+import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Lightbulb, Mic, GraduationCap, Users, CheckSquare, Zap } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const container = {
   hidden: { opacity: 0 },
@@ -13,52 +15,155 @@ const container = {
 };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
 
+function timeAgoShort(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default function Home() {
   const isRecording = useAppStore((s) => s.isRecording);
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+  const liveTranscript = useAppStore((s) => s.liveTranscript);
+  const navigate = useNavigate();
+  const { fetchDailySummary, dailySummary, isProcessing } = useAIProcessing();
+
   const pendingTasks = mockTasks.filter(t => !t.isDone).length;
+  const lecturesCaptured = mockAcademicNotes.length;
+  const meetingsCaptured = mockMeetingNotes.length;
+  const ideasCaptured = mockIdeas.length;
+
+  // Find most recent conversation time
+  const lastCaptured = mockConversations.length > 0
+    ? timeAgoShort(mockConversations[0].startedAt)
+    : null;
+
+  const [summaryText, setSummaryText] = useState<string>('');
+  const [smartPrompt, setSmartPrompt] = useState<string>('');
+  const [promptLink, setPromptLink] = useState<string>('/tasks');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const loadDailySummary = useCallback(async () => {
+    setSummaryLoading(true);
+    const dayData = mockConversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
+    if (dayData.length > 10) {
+      const result = await fetchDailySummary(dayData);
+      if (result) {
+        setSummaryText(result.summary);
+        setSmartPrompt(result.smart_prompt);
+        setPromptLink(result.prompt_link || '/tasks');
+      }
+    }
+    setSummaryLoading(false);
+  }, [fetchDailySummary]);
+
+  useEffect(() => {
+    // Load summary on mount
+    loadDailySummary();
+    // Refresh smart prompt every 30 minutes
+    const interval = setInterval(loadDailySummary, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadDailySummary]);
+
+  const hasData = mockConversations.length > 0;
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
-      {/* Header */}
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      {/* Component 1 — Live Status Card */}
+      <motion.div variants={item} className="glass-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-display text-lg text-foreground">EchoMind is Active</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { icon: GraduationCap, label: 'Lectures', value: lecturesCaptured, color: 'text-vc-blue' },
+            { icon: Users, label: 'Meetings', value: meetingsCaptured, color: 'text-gold' },
+            { icon: Lightbulb, label: 'Ideas', value: ideasCaptured, color: 'text-violet-400' },
+            { icon: CheckSquare, label: 'Tasks', value: pendingTasks, color: 'text-emerald-500' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-card/60 rounded-lg p-3 text-center border border-primary/5">
+              <stat.icon className={`h-4 w-4 mx-auto mb-1.5 ${stat.color}`} />
+              <p className="font-display text-xl text-foreground">{stat.value}</p>
+              <p className="text-[10px] font-body text-muted-foreground uppercase tracking-wider mt-0.5">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs font-body text-muted-foreground mt-3">
+          {lastCaptured ? `Last captured: ${lastCaptured}` : 'Waiting to capture your day...'}
+        </p>
+      </motion.div>
+
+      {/* Component 2 — Daily Summary Card */}
+      <motion.div variants={item} className="glass-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-gold" />
+            <span className="font-display text-base text-foreground">Today's Brief</span>
+          </div>
+          <button
+            onClick={loadDailySummary}
+            disabled={summaryLoading}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${summaryLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <p
+          className="text-sm text-foreground/80 leading-relaxed italic"
+          style={{ fontFamily: "'Dancing Script', cursive, serif" }}
+        >
+          {summaryLoading
+            ? 'Generating your daily brief...'
+            : summaryText || (hasData ? 'Tap 🔄 to generate your daily brief.' : 'Your daily brief will appear here once you start capturing.')}
+        </p>
+      </motion.div>
+
+      {/* Component 3 — Smart Prompt Card */}
       <motion.div variants={item}>
-        <h1 className="font-display text-3xl sm:text-4xl text-foreground mb-1">{greeting}</h1>
-        <p className="text-muted-foreground font-body">What's on your mind today?</p>
+        <button
+          onClick={() => navigate(promptLink)}
+          className="w-full text-left glass-card-hover p-5 group"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-gold/10 shrink-0">
+              <Lightbulb className="h-5 w-5 text-gold" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-body text-foreground group-hover:text-foreground/90 transition-colors">
+                {smartPrompt || (hasData
+                  ? `You have ${pendingTasks} pending tasks — want to review them?`
+                  : 'Start recording to get personalized suggestions here.')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                Tap to explore <ArrowRight className="h-3 w-3" />
+              </p>
+            </div>
+          </div>
+        </button>
       </motion.div>
 
-      {/* Recording Card */}
-      <motion.div variants={item} className="glass-card p-6 sm:p-8">
-        <div className="flex flex-col items-center text-center gap-5">
-          <MicButton size="lg" />
-          <div>
-            <p className="font-display text-lg text-foreground">
-              {isRecording ? 'Recording...' : 'Tap to start recording'}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isRecording ? 'Speak naturally. Your voice is being transcribed live.' : 'Your voice will be transcribed, classified, and organized by AI.'}
-            </p>
-          </div>
+      {/* Manual Record Button (secondary) */}
+      <motion.div variants={item} className="flex justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <MicButton size="sm" />
+          <span className="text-xs font-body text-muted-foreground flex items-center gap-1">
+            <Mic className="h-3 w-3" /> Manual Record
+          </span>
         </div>
-        <div className="mt-4">
+      </motion.div>
+
+      {/* Live transcript (shown when recording) */}
+      {(isRecording || liveTranscript) && (
+        <motion.div variants={item}>
           <LiveTranscript />
-        </div>
-      </motion.div>
-
-      {/* Quick Stats */}
-      <motion.div variants={item} className="grid grid-cols-3 gap-3">
-        {[
-          { icon: MessageSquare, label: "Today's Conversations", value: mockConversations.length, color: 'text-primary' },
-          { icon: CheckSquare, label: 'Pending Tasks', value: pendingTasks, color: 'text-emerald-400' },
-          { icon: Lightbulb, label: 'Ideas Captured', value: mockIdeas.length, color: 'text-violet-400' },
-        ].map((stat) => (
-          <div key={stat.label} className="glass-card p-4 text-center">
-            <stat.icon className={`h-5 w-5 mx-auto mb-2 ${stat.color}`} />
-            <p className="font-display text-2xl text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Recent Activity */}
       <motion.div variants={item}>
@@ -73,21 +178,6 @@ export default function Home() {
             <ConversationCard key={conv.id} conv={conv} />
           ))}
         </div>
-      </motion.div>
-
-      {/* Quick Links */}
-      <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { to: '/todays-text', icon: Calendar, label: "Today's Text", desc: 'View all recordings from today' },
-          { to: '/academic-notes', icon: GraduationCap, label: 'Academic Notes', desc: 'AI-structured study notes' },
-          { to: '/conversations', icon: MessageSquare, label: 'All Conversations', desc: 'Browse your full history' },
-        ].map((link) => (
-          <Link key={link.to} to={link.to} className="glass-card-hover p-4 group">
-            <link.icon className="h-5 w-5 text-primary mb-2 group-hover:text-gold-light transition-colors" />
-            <p className="font-display text-sm text-foreground">{link.label}</p>
-            <p className="text-xs text-muted-foreground mt-1">{link.desc}</p>
-          </Link>
-        ))}
       </motion.div>
     </motion.div>
   );
