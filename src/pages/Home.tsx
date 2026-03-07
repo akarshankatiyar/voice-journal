@@ -178,7 +178,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="space-y-3">
-          {mockConversations.slice(0, 3).map(conv => (
+          {conversations.slice(0, 3).map(conv => (
             <ConversationCard key={conv.id} conv={conv} />
           ))}
         </div>
