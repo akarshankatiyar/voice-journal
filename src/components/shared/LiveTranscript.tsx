@@ -1,10 +1,36 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { motion } from 'framer-motion';
+import { Progress } from '@/components/ui/progress';
+
+const SILENCE_TIMEOUT_S = 120; // 2 minutes
 
 export function LiveTranscript() {
   const { liveTranscript, interimText, isRecording } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [silenceSeconds, setSilenceSeconds] = useState(0);
+  const lastActivityRef = useRef(Date.now());
+
+  // Track speech activity
+  useEffect(() => {
+    if (liveTranscript || interimText) {
+      lastActivityRef.current = Date.now();
+      setSilenceSeconds(0);
+    }
+  }, [liveTranscript, interimText]);
+
+  // Count silence seconds while recording
+  useEffect(() => {
+    if (!isRecording) {
+      setSilenceSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastActivityRef.current) / 1000);
+      setSilenceSeconds(elapsed);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -13,6 +39,11 @@ export function LiveTranscript() {
   }, [liveTranscript, interimText]);
 
   if (!isRecording && !liveTranscript) return null;
+
+  const silencePercent = Math.min((silenceSeconds / SILENCE_TIMEOUT_S) * 100, 100);
+  const remainingSeconds = Math.max(SILENCE_TIMEOUT_S - silenceSeconds, 0);
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
 
   return (
     <motion.div
@@ -25,7 +56,19 @@ export function LiveTranscript() {
         <span className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider">
           {isRecording ? 'Live Transcript' : 'Last Recording'}
         </span>
+        {isRecording && silenceSeconds > 5 && (
+          <span className="ml-auto text-[10px] font-body text-muted-foreground">
+            Auto-save in {mins}:{secs.toString().padStart(2, '0')}
+          </span>
+        )}
       </div>
+
+      {isRecording && silenceSeconds > 5 && (
+        <div className="mb-3">
+          <Progress value={silencePercent} className="h-1" />
+        </div>
+      )}
+
       <div ref={scrollRef} className="max-h-40 overflow-y-auto text-sm font-body">
         <span className="text-foreground/90">{liveTranscript}</span>
         {interimText && <span className="text-muted-foreground/60">{interimText}</span>}

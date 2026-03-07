@@ -5,7 +5,7 @@ import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
-import { mockConversations, mockTasks, mockIdeas, mockAcademicNotes, mockMeetingNotes } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Lightbulb, Mic, GraduationCap, Users, CheckSquare, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
