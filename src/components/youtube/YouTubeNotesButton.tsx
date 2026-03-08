@@ -8,6 +8,7 @@ import { useConversationStore } from '@/store/useConversationStore';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import { resolveNotes } from '@/utils/parseNotes';
 
 const YT_ICON = '/images/youtube-icon.svg';
 
@@ -67,49 +68,30 @@ export function YouTubeNotesButton() {
         createdAt: now,
       });
 
-      // Handle parse_error: extract usable content from raw
-      let notes = data.notes || {};
-      if (notes.parse_error && notes.raw) {
-        try {
-          const codeBlock = notes.raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (codeBlock) {
-            notes = JSON.parse(codeBlock[1].trim());
-          } else {
-            const jsonMatch = notes.raw.match(/\{[\s\S]*"structured_notes"\s*:[\s\S]*\}/);
-            if (jsonMatch) {
-              notes = JSON.parse(jsonMatch[0]);
-            } else {
-              // Use raw content directly as structured notes
-              notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
-            }
-          }
-        } catch {
-          notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
-        }
-      }
+      const notes = resolveNotes(data.notes, data.title, data.summary);
 
       if (type === 'academic') {
         addAcademicNote({
           id: `an_${Date.now()}`,
           conversationId: convId,
-          title: notes.title || data.title || 'YouTube Lecture',
-          subject: notes.subject || 'General',
-          structuredNotes: notes.structured_notes || '',
-          keyConcepts: notes.key_concepts || [],
-          summary: notes.summary || data.summary || '',
+          title: notes.title,
+          subject: notes.subject,
+          structuredNotes: notes.structured_notes,
+          keyConcepts: notes.key_concepts,
+          summary: notes.summary,
           createdAt: now,
         });
       } else if (type === 'meeting') {
         addMeetingNote({
           id: `mn_${Date.now()}`,
           conversationId: convId,
-          title: notes.title || data.title || 'YouTube Meeting',
+          title: notes.title,
           attendees: notes.attendees || [],
           agenda: notes.agenda || '',
           actionItems: (notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
           decisions: notes.decisions || [],
-          structuredNotes: notes.structured_notes || '',
-          summary: notes.summary || data.summary || '',
+          structuredNotes: notes.structured_notes,
+          summary: notes.summary,
           createdAt: now,
         });
       }
