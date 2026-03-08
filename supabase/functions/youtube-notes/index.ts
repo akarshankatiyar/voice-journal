@@ -36,98 +36,105 @@ function extractTextFromXml(xml: string): string {
   return parts.join(" ");
 }
 
-// Use YouTube's Innertube API to get caption tracks - bypasses bot detection
-async function fetchTranscriptViaInnertube(videoId: string): Promise<string> {
-  // Step 1: Get the video page to extract API key and client version
-  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept": "text/html,application/xhtml+xml",
-      "Cookie": "CONSENT=PENDING+987; GPS=1",
-    },
-  });
-  const html = await pageRes.text();
-
-  // Try to get captions directly from the page's player response
-  const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s) 
-    || html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s);
-  
-  if (playerMatch) {
-    try {
-      const player = JSON.parse(playerMatch[1]);
-      const tracks = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      if (tracks && tracks.length > 0) {
-        const enTrack = tracks.find((t: any) => t.languageCode?.startsWith("en")) || tracks[0];
-        let url = enTrack.baseUrl;
-        if (url.includes("fmt=")) url = url.replace(/fmt=[^&]+/, "fmt=srv3");
-        else url += "&fmt=srv3";
-        
-        const capRes = await fetch(url);
-        if (capRes.ok) {
-          const xml = await capRes.text();
-          const text = extractTextFromXml(xml);
-          if (text.length > 50) return text;
-        }
-      }
-    } catch (e) {
-      console.log("Direct extraction failed, trying Innertube API:", e);
-    }
-  }
-
-  // Step 2: Extract innertube API key and client version from page
-  const apiKeyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
-  const clientVersionMatch = html.match(/"INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)"/);
-  
-  const apiKey = apiKeyMatch?.[1] || "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-  const clientVersion = clientVersionMatch?.[1] || "2.20240101.00.00";
-
-  // Step 3: Call Innertube player endpoint
-  const innertubeRes = await fetch(
-    `https://www.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
+async function fetchTranscript(videoId: string): Promise<string> {
+  // Try multiple Innertube client types - ANDROID is least blocked
+  const clients = [
     {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        context: {
-          client: {
-            hl: "en",
-            gl: "US",
-            clientName: "WEB",
-            clientVersion: clientVersion,
+      clientName: "ANDROID",
+      clientVersion: "19.29.37",
+      apiKey: "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+      userAgent: "com.google.android.youtube/19.29.37 (Linux; U; Android 14) gzip",
+    },
+    {
+      clientName: "IOS",
+      clientVersion: "19.29.1",
+      apiKey: "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
+      userAgent: "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
+    },
+    {
+      clientName: "WEB",
+      clientVersion: "2.20241120.00.00",
+      apiKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+    },
+  ];
+
+  for (const client of clients) {
+    try {
+      console.log(`Trying client: ${client.clientName}`);
+      const res = await fetch(
+        `https://www.youtube.com/youtubei/v1/player?key=${client.apiKey}&prettyPrint=false`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": client.userAgent,
+            "X-YouTube-Client-Name": client.clientName === "ANDROID" ? "3" : client.clientName === "IOS" ? "5" : "1",
+            "X-YouTube-Client-Version": client.clientVersion,
           },
-        },
-        videoId: videoId,
-      }),
+          body: JSON.stringify({
+            context: {
+              client: {
+                hl: "en",
+                gl: "US",
+                clientName: client.clientName,
+                clientVersion: client.clientVersion,
+                ...(client.clientName === "ANDROID" ? { androidSdkVersion: 34, osName: "Android", osVersion: "14", platform: "MOBILE" } : {}),
+                ...(client.clientName === "IOS" ? { deviceMake: "Apple", deviceModel: "iPhone16,2", osName: "iPhone", osVersion: "17.5.1.21F90", platform: "MOBILE" } : {}),
+              },
+            },
+            videoId,
+            contentCheckOk: true,
+            racyCheckOk: true,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        console.log(`${client.clientName} returned ${res.status}`);
+        await res.text(); // consume body
+        continue;
+      }
+
+      const data = await res.json();
+      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+      if (!tracks || tracks.length === 0) {
+        console.log(`${client.clientName}: no caption tracks found`);
+        continue;
+      }
+
+      console.log(`${client.clientName}: found ${tracks.length} caption tracks`);
+      const enTrack = tracks.find((t: any) => t.languageCode === "en")
+        || tracks.find((t: any) => t.languageCode?.startsWith("en"))
+        || tracks[0];
+
+      let captionUrl = enTrack.baseUrl;
+      if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
+      else captionUrl += "&fmt=srv3";
+
+      const capRes = await fetch(captionUrl, {
+        headers: { "User-Agent": client.userAgent },
+      });
+      if (!capRes.ok) {
+        console.log(`Failed to fetch captions XML: ${capRes.status}`);
+        await capRes.text();
+        continue;
+      }
+
+      const xml = await capRes.text();
+      const text = extractTextFromXml(xml);
+      if (text.length > 50) {
+        console.log(`Got transcript (${text.length} chars) via ${client.clientName}`);
+        return text;
+      }
+      console.log(`${client.clientName}: transcript too short (${text.length} chars)`);
+    } catch (e) {
+      console.log(`${client.clientName} failed:`, e);
     }
-  );
-
-  if (!innertubeRes.ok) {
-    throw new Error("Failed to fetch video data from YouTube API");
   }
 
-  const data = await innertubeRes.json();
-  const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-  if (!tracks || tracks.length === 0) {
-    throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
-  }
-
-  const enTrack = tracks.find((t: any) => t.languageCode?.startsWith("en")) || tracks[0];
-  let captionUrl = enTrack.baseUrl;
-  if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
-  else captionUrl += "&fmt=srv3";
-
-  const capRes = await fetch(captionUrl);
-  if (!capRes.ok) throw new Error("Failed to fetch caption track");
-  const xml = await capRes.text();
-  const text = extractTextFromXml(xml);
-
-  if (text.length < 50) {
-    throw new Error("Transcript too short or empty");
-  }
-
-  return text;
+  throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
 }
 
 async function getVideoTitle(videoId: string): Promise<string> {
@@ -158,13 +165,12 @@ serve(async (req) => {
     console.log(`Processing video: ${videoId}`);
 
     const [transcript, videoTitle] = await Promise.all([
-      fetchTranscriptViaInnertube(videoId),
+      fetchTranscript(videoId),
       getVideoTitle(videoId),
     ]);
 
     console.log(`Got transcript (${transcript.length} chars) for: ${videoTitle}`);
 
-    // Classify content
     const classifyRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -184,7 +190,6 @@ serve(async (req) => {
     try { classification = JSON.parse(classContent); } catch { classification = { type: "academic" }; }
     const type = classification.type || "academic";
 
-    // Generate structured notes
     const notesPrompt = type === "meeting"
       ? `Convert this YouTube video transcript into structured meeting notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"title": "${videoTitle}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
       : `Convert this YouTube video transcript into structured academic notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${videoTitle}", "structured_notes": "Full formatted notes in markdown with ## headings, bullet points, **bold** terms", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
