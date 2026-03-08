@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockMeetingNotes } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
 
