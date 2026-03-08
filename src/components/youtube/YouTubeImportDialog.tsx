@@ -71,6 +71,7 @@ export function YouTubeImportDialog() {
         createdAt: now,
         source: 'youtube',
         videoId: data.videoId,
+        hasTranscript: data.hasTranscript !== false,
       });
 
       if (data.isAcademic && data.academicConfidence > 70) {
