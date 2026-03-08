@@ -11,7 +11,7 @@ const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/todays-text', icon: Calendar, label: "Today's Text" },
   { to: '/academic-notes', icon: GraduationCap, label: 'Academic Notes' },
-  { to: '/youtube-notes', icon: Monitor, label: '📺 YouTube Notes' },
+  { to: '/youtube-notes', icon: Monitor, label: 'YouTube Notes' },
   { to: '/meeting-notes', icon: Handshake, label: 'Meeting Notes' },
   { to: '/conversations', icon: MessageSquare, label: 'All Conversations' },
   { to: '/tasks', icon: CheckSquare, label: 'Tasks & Reminders' },

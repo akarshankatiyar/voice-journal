@@ -36,6 +36,8 @@ export interface AcademicNote {
   createdAt: string;
   source?: 'voice' | 'youtube';
   videoId?: string;
+  hasTranscript?: boolean;
+  language?: 'english' | 'hindi' | 'hinglish';
 }
 
 export interface MeetingNote {

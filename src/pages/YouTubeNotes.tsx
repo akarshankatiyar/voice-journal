@@ -48,7 +48,6 @@ export default function YouTubeNotes() {
       <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl text-foreground mb-1 flex items-center gap-2">
-            <img src="/images/youtube-icon.svg" alt="" className="h-6 w-6" />
             YouTube Notes
           </h1>
           <p className="text-sm text-muted-foreground">AI-generated notes from YouTube videos</p>
