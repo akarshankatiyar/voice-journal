@@ -65,92 +65,160 @@ async function fetchPageContent(videoId: string): Promise<{
   const html = await pageRes.text();
   console.log(`  Got HTML: ${html.length} chars`);
 
-  // Extract title
-  let title = "YouTube Video";
-  const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-  if (titleMatch) {
-    title = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
+  // Extract title - try multiple patterns
+  let title = "";
+  
+  // Try og:title first (most reliable)
+  const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+  if (ogTitle) title = decodeHtmlEntities(ogTitle[1]);
+  
+  // Try <title> tag
+  if (!title) {
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+    if (titleMatch) title = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
   }
+  
+  // Try twitter:title
+  if (!title) {
+    const twTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/);
+    if (twTitle) title = decodeHtmlEntities(twTitle[1]);
+  }
+
+  // Try JSON-LD
+  if (!title) {
+    const jsonLd = html.match(/"name"\s*:\s*"([^"]{5,200})"/);
+    if (jsonLd) title = decodeHtmlEntities(jsonLd[1]);
+  }
+
+  if (!title) title = "YouTube Video";
   console.log(`  Title: ${title}`);
 
-  // Extract description from ytInitialPlayerResponse
+  // Extract description from multiple sources
   let description = "";
   let chapters = "";
   let captionTracks: any[] | null = null;
+  let channelName = "";
+  let keywords: string[] = [];
 
-  // Try to get ytInitialPlayerResponse
-  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script)/s);
-  if (playerMatch) {
-    try {
-      const playerData = JSON.parse(playerMatch[1]);
-      
-      // Get description
-      const desc = playerData?.videoDetails?.shortDescription;
-      if (desc) {
-        description = decodeHtmlEntities(desc);
-        console.log(`  Description: ${description.length} chars`);
-      }
+  // Try og:description
+  const ogDesc = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/);
+  if (ogDesc) description = decodeHtmlEntities(ogDesc[1]);
 
-      // Get caption tracks
-      const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      if (tracks && tracks.length > 0) {
-        captionTracks = tracks;
-        console.log(`  Found ${tracks.length} caption tracks!`);
+  // Try to get ytInitialPlayerResponse (primary source)
+  const playerPatterns = [
+    /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script)/s,
+    /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s,
+  ];
+  
+  for (const pattern of playerPatterns) {
+    const playerMatch = html.match(pattern);
+    if (playerMatch) {
+      try {
+        const playerData = JSON.parse(playerMatch[1]);
+        
+        // Get full description (much longer than og:description)
+        const desc = playerData?.videoDetails?.shortDescription;
+        if (desc && desc.length > description.length) {
+          description = decodeHtmlEntities(desc);
+        }
+
+        // Get channel name
+        const channel = playerData?.videoDetails?.author;
+        if (channel) channelName = channel;
+
+        // Get keywords
+        const kw = playerData?.videoDetails?.keywords;
+        if (kw) keywords = kw;
+
+        // Get video length
+        const lengthSeconds = playerData?.videoDetails?.lengthSeconds;
+        if (lengthSeconds) {
+          const mins = Math.floor(Number(lengthSeconds) / 60);
+          console.log(`  Video length: ${mins} minutes`);
+        }
+
+        // Get caption tracks
+        const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (tracks && tracks.length > 0) {
+          captionTracks = tracks;
+          console.log(`  Found ${tracks.length} caption tracks!`);
+        }
+        break;
+      } catch (e) {
+        console.log(`  Failed to parse playerResponse: ${e}`);
       }
-    } catch (e) {
-      console.log(`  Failed to parse playerResponse: ${e}`);
     }
   }
 
-  // Try to get ytInitialData for chapters
-  const dataMatch = html.match(/ytInitialData\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script)/s);
-  if (dataMatch) {
-    try {
-      const initialData = JSON.parse(dataMatch[1]);
-      // Extract chapters from engagement panels
-      const panels = initialData?.engagementPanels;
-      if (panels) {
-        const chaptersPanel = JSON.stringify(panels);
-        const chapterMatches = chaptersPanel.match(/"title":\s*\{"simpleText":\s*"([^"]+)"\}/g);
+  // Try to get ytInitialData for chapters and more content
+  const dataPatterns = [
+    /ytInitialData\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script)/s,
+    /ytInitialData\s*=\s*(\{.+?\})\s*;/s,
+  ];
+  
+  for (const pattern of dataPatterns) {
+    const dataMatch = html.match(pattern);
+    if (dataMatch) {
+      try {
+        const initialData = JSON.parse(dataMatch[1]);
+        const dataStr = JSON.stringify(initialData);
+        
+        // Extract chapters
+        const chapterMatches = dataStr.match(/"title":\s*\{"simpleText":\s*"([^"]+)"\}/g);
         if (chapterMatches && chapterMatches.length > 2) {
           chapters = chapterMatches
             .map((m: string) => {
               const t = m.match(/"simpleText":\s*"([^"]+)"/);
-              return t ? t[1] : "";
+              return t ? decodeHtmlEntities(t[1]) : "";
             })
             .filter(Boolean)
             .join("\n");
-          console.log(`  Chapters: ${chapters.length} chars`);
         }
+
+        // Try to extract structured description with timestamps
+        const descMatch = dataStr.match(/"attributedDescription":\s*\{"content":\s*"([^"]+)"/);
+        if (descMatch && descMatch[1].length > description.length) {
+          description = decodeHtmlEntities(descMatch[1]);
+        }
+        
+        break;
+      } catch (e) {
+        console.log(`  Failed to parse initialData: ${e}`);
       }
-    } catch (e) {
-      console.log(`  Failed to parse initialData: ${e}`);
     }
   }
 
-  // Also try extracting description from meta tags if not found
+  // Fallback: meta description
   if (!description) {
     const metaDesc = html.match(/<meta\s+name="description"\s+content="([^"]+)"/);
     if (metaDesc) description = decodeHtmlEntities(metaDesc[1]);
   }
 
-  // Build raw metadata string with everything we found
+  console.log(`  Description: ${description.length} chars`);
+  console.log(`  Chapters: ${chapters.length} chars`);
+  console.log(`  Channel: ${channelName}`);
+  console.log(`  Keywords: ${keywords.length}`);
+
+  // Build comprehensive raw metadata
   const rawMetadata = [
-    `Title: ${title}`,
-    description ? `\nDescription:\n${description}` : "",
-    chapters ? `\nChapters:\n${chapters}` : "",
+    `Video Title: ${title}`,
+    channelName ? `Channel: ${channelName}` : "",
+    keywords.length > 0 ? `Keywords: ${keywords.join(", ")}` : "",
+    description ? `\nFull Description:\n${description}` : "",
+    chapters ? `\nChapter List:\n${chapters}` : "",
   ].filter(Boolean).join("\n");
 
   return { title, description, chapters, captionTracks, rawMetadata };
 }
 
-// ===== STEP 2: Try to get actual transcript from caption tracks =====
+// ===== STEP 2: Try to get transcript from caption tracks =====
 async function fetchTranscriptFromTracks(tracks: any[]): Promise<string | null> {
   console.log("Step 2: Fetching transcript from caption tracks...");
   
   const enTrack = tracks.find((t: any) => t.languageCode === "en" && t.kind !== "asr")
     || tracks.find((t: any) => t.languageCode === "en")
     || tracks.find((t: any) => t.languageCode?.startsWith("en"))
+    || tracks.find((t: any) => t.languageCode === "hi")
     || tracks[0];
 
   if (!enTrack?.baseUrl) return null;
@@ -181,7 +249,7 @@ async function fetchTranscriptFromTracks(tracks: any[]): Promise<string | null> 
 // ===== STEP 3: Try direct timedtext API =====
 async function fetchViaTimedtext(videoId: string): Promise<string | null> {
   console.log("Step 3: Trying direct timedtext API...");
-  const langs = ["en", "en-US", "a.en", "hi"];
+  const langs = ["en", "en-US", "a.en", "hi", "en-IN"];
   for (const lang of langs) {
     try {
       const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
@@ -194,7 +262,7 @@ async function fetchViaTimedtext(videoId: string): Promise<string | null> {
           return cleanTranscript(text);
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // continue
     }
   }
@@ -222,7 +290,7 @@ serve(async (req) => {
     // STEP 1: Fetch page and extract all metadata
     const { title, description, chapters, captionTracks, rawMetadata } = await fetchPageContent(videoId);
 
-    // STEP 2: Try to get actual transcript from caption tracks found in page
+    // STEP 2: Try to get actual transcript from caption tracks
     let transcript: string | null = null;
     if (captionTracks) {
       transcript = await fetchTranscriptFromTracks(captionTracks);
@@ -233,7 +301,6 @@ serve(async (req) => {
       transcript = await fetchViaTimedtext(videoId);
     }
 
-    // STEP 4: If no transcript, use description + chapters as content source
     const hasTranscript = !!transcript;
     const contentForAI = transcript || rawMetadata;
 
@@ -266,14 +333,60 @@ serve(async (req) => {
     try { classification = JSON.parse(classContent); } catch { classification = { type: "academic" }; }
     const type = classification.type || "academic";
 
-    // Generate structured notes
+    // Generate structured notes with COMPREHENSIVE prompt
     const sourceNote = hasTranscript
-      ? "This is a full transcript from a YouTube video."
-      : "This is the title, description, and chapter information from a YouTube video (no transcript was available). Generate the best possible notes from this metadata.";
+      ? "Below is the FULL TRANSCRIPT of a YouTube video. Use every detail from it."
+      : "Below is the TITLE, DESCRIPTION, KEYWORDS, and CHAPTER TITLES from a YouTube video. No transcript was available. Use your knowledge of the topic to generate comprehensive, detailed educational notes that cover the subject matter thoroughly. Expand on every concept mentioned. Generate AT LEAST 800 words of structured notes.";
 
-    const notesPrompt = type === "meeting"
-      ? `${sourceNote} Convert it into structured meeting notes. Return ONLY valid JSON.\n\nContent: "${contentForAI.slice(0, 15000)}"\n\nReturn:\n{"title": "${title}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
-      : `${sourceNote} Convert it into rich structured academic notes with:\n- ## headings for each topic\n- bullet points for key concepts\n- important definitions marked with **Definition:** prefix\n- key takeaways section at the end\n- a 3-line summary at the top\nFormat the structured_notes field in markdown.\n\nReturn ONLY valid JSON.\n\nContent: "${contentForAI.slice(0, 15000)}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${title}", "structured_notes": "Full formatted notes in markdown", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
+    const academicPrompt = `${sourceNote}
+
+VIDEO CONTENT:
+"""
+${contentForAI.slice(0, 15000)}
+"""
+
+Generate COMPREHENSIVE, DETAILED academic notes. You MUST:
+
+1. Write a clear 3-sentence summary at the top
+2. Organize content with ## headings for EACH major topic/concept  
+3. Under each heading, write detailed explanations (not just bullet points)
+4. Mark important terms with **Definition:** prefix and explain them thoroughly
+5. Include **Important:** callouts for critical concepts
+6. Include **Key Takeaway:** at the end of major sections
+7. Add a ## Key Concepts section listing ALL concepts covered
+8. Add a ## Summary section with final takeaways
+9. If the topic involves any formulas, syntax, or code, show them with **Formula:** prefix
+10. Use bullet points for lists but write full sentences for explanations
+
+${!hasTranscript ? `CRITICAL: Since no transcript is available, use your own knowledge about "${title}" to write thorough, educational notes. Cover the topic comprehensively as if writing a study guide. Include definitions, examples, best practices, and common pitfalls. The notes should be useful even without having watched the video.` : ""}
+
+Return ONLY valid JSON (no markdown code blocks):
+{
+  "subject": "detected subject/topic area",
+  "title": "${title}",
+  "structured_notes": "FULL comprehensive notes in markdown format (at least 600 words)",
+  "key_concepts": ["concept1", "concept2", "concept3", ...],
+  "summary": "2-3 sentence overview of what this video covers",
+  "definitions": [{"term": "term1", "definition": "detailed definition"}, ...]
+}`;
+
+    const meetingPrompt = `${sourceNote}
+
+VIDEO CONTENT:
+"""
+${contentForAI.slice(0, 15000)}
+"""
+
+Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code blocks):
+{
+  "title": "${title}",
+  "attendees": ["speaker names if identifiable"],
+  "agenda": "Detailed description of what the video/meeting covers",
+  "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}],
+  "decisions": ["Key decisions or conclusions"],
+  "structured_notes": "Detailed formatted notes in markdown with ## headings, bullet points, and key quotes (at least 500 words)",
+  "summary": "2-3 sentence summary"
+}`;
 
     const notesRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -281,8 +394,11 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You generate structured notes from video content. Return ONLY valid JSON, no markdown code blocks." },
-          { role: "user", content: notesPrompt },
+          {
+            role: "system",
+            content: "You are an expert note-taker and educator. Generate thorough, detailed, well-structured notes from video content. Always produce comprehensive output with proper markdown formatting. Return ONLY valid JSON, no markdown code blocks.",
+          },
+          { role: "user", content: type === "meeting" ? meetingPrompt : academicPrompt },
         ],
       }),
     });
@@ -310,7 +426,7 @@ serve(async (req) => {
     let notes;
     try { notes = JSON.parse(notesContent); } catch { notes = { parse_error: true, raw: notesContent }; }
 
-    console.log(`✅ Done! Type: ${type}, has transcript: ${hasTranscript}`);
+    console.log(`✅ Done! Type: ${type}, has transcript: ${hasTranscript}, notes length: ${JSON.stringify(notes).length}`);
 
     return new Response(JSON.stringify({
       type, title,
