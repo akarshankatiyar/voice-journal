@@ -65,32 +65,36 @@ async function fetchPageContent(videoId: string): Promise<{
   const html = await pageRes.text();
   console.log(`  Got HTML: ${html.length} chars`);
 
-  // Extract title - try multiple patterns
+  // Extract title - try multiple patterns, prioritize videoDetails
   let title = "";
   
-  // Try og:title first (most reliable)
-  const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
-  if (ogTitle) title = decodeHtmlEntities(ogTitle[1]);
+  // Try videoDetails.title from ytInitialPlayerResponse (most reliable)
+  const videoDetailsTitle = html.match(/"videoDetails":\s*\{[^}]*"title"\s*:\s*"([^"]+)"/);
+  if (videoDetailsTitle) title = decodeHtmlEntities(videoDetailsTitle[1]);
+  
+  // Try og:title
+  if (!title || title.startsWith("@")) {
+    const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+    if (ogTitle) title = decodeHtmlEntities(ogTitle[1]);
+  }
   
   // Try <title> tag
-  if (!title) {
+  if (!title || title.startsWith("@")) {
     const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    if (titleMatch) title = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
+    if (titleMatch) {
+      const cleaned = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
+      if (!cleaned.startsWith("@")) title = cleaned;
+    }
   }
   
   // Try twitter:title
-  if (!title) {
+  if (!title || title.startsWith("@")) {
     const twTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/);
-    if (twTitle) title = decodeHtmlEntities(twTitle[1]);
+    if (twTitle && !twTitle[1].startsWith("@")) title = decodeHtmlEntities(twTitle[1]);
   }
 
-  // Try JSON-LD
-  if (!title) {
-    const jsonLd = html.match(/"name"\s*:\s*"([^"]{5,200})"/);
-    if (jsonLd) title = decodeHtmlEntities(jsonLd[1]);
-  }
-
-  if (!title) title = "YouTube Video";
+  // Filter out channel handles used as title
+  if (!title || title.startsWith("@")) title = "YouTube Video";
   console.log(`  Title: ${title}`);
 
   // Extract description from multiple sources
@@ -424,7 +428,40 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
     notesContent = notesContent.replace(/```json\n?/g, "").replace(/```/g, "").trim();
 
     let notes;
-    try { notes = JSON.parse(notesContent); } catch { notes = { parse_error: true, raw: notesContent }; }
+    try {
+      notes = JSON.parse(notesContent);
+    } catch {
+      // Try stripping control characters and re-parsing
+      try {
+        const cleaned = notesContent
+          .replace(/[\x00-\x1F\x7F]/g, ' ')
+          .replace(/\\\n/g, '\\n');
+        notes = JSON.parse(cleaned);
+      } catch {
+        // Try extracting JSON substring from mixed content
+        try {
+          const jsonMatch = notesContent.match(/\{[\s\S]*"structured_notes"\s*:[\s\S]*\}/);
+          if (jsonMatch) {
+            // Try to repair unclosed braces/brackets
+            let candidate = jsonMatch[0];
+            let braces = 0, brackets = 0;
+            for (const c of candidate) {
+              if (c === '{') braces++;
+              if (c === '}') braces--;
+              if (c === '[') brackets++;
+              if (c === ']') brackets--;
+            }
+            while (brackets > 0) { candidate += ']'; brackets--; }
+            while (braces > 0) { candidate += '}'; braces--; }
+            notes = JSON.parse(candidate);
+          } else {
+            notes = { parse_error: true, raw: notesContent };
+          }
+        } catch {
+          notes = { parse_error: true, raw: notesContent };
+        }
+      }
+    }
 
     console.log(`✅ Done! Type: ${type}, has transcript: ${hasTranscript}, notes length: ${JSON.stringify(notes).length}`);
 
