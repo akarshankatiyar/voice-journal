@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2 } from 'lucide-react';
 import type { AcademicNote } from '@/data/mockData';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface Props {
   detail: AcademicNote | null;
