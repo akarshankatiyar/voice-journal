@@ -13,9 +13,9 @@ export function useVoiceCapture() {
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
-  const isActiveRef = useRef(false); // tracks desired recording state
-  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wantActiveRef = useRef(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const isRestartingRef = useRef(false);
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -29,25 +29,17 @@ export function useVoiceCapture() {
     }, SILENCE_TIMEOUT_MS);
   }, []);
 
-  const startNewRecognitionInstance = useCallback(() => {
-    if (!isActiveRef.current) return;
-
+  const buildRecognition = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) return null;
 
-    // Clean up old instance
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
-    }
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-IN';
+    rec.maxAlternatives = 1;
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-IN';
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    rec.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -62,38 +54,38 @@ export function useVoiceCapture() {
       setInterimText(interim);
     };
 
-    recognition.onerror = (event: any) => {
-      console.warn('Speech recognition error:', event.error);
-      // Don't do anything here — let onend handle restart
+    rec.onerror = (event: any) => {
+      // 'aborted' is expected when we manually stop; 'no-speech' is normal silence
+      if (event.error === 'aborted' || event.error === 'no-speech') return;
+      console.warn('SpeechRecognition error:', event.error);
     };
 
-    recognition.onend = () => {
-      // The API stopped on its own (phrase end, network blip, etc.)
-      // Restart immediately if we're still supposed to be recording
-      if (isActiveRef.current) {
-        // Clear any pending restart
-        if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
-        // Small delay to avoid rapid-fire restarts
-        restartTimeoutRef.current = setTimeout(() => {
-          if (isActiveRef.current) {
-            startNewRecognitionInstance();
-          }
-        }, 50);
-      }
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (e) {
-      // If it fails, retry once after a brief delay
-      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = setTimeout(() => {
-        if (isActiveRef.current) {
-          startNewRecognitionInstance();
+    rec.onend = () => {
+      // Only auto-restart if we still want to be active and aren't already restarting
+      if (!wantActiveRef.current || isRestartingRef.current) return;
+      
+      isRestartingRef.current = true;
+      // Build a fresh instance and start it
+      const fresh = buildRecognition();
+      if (fresh) {
+        recognitionRef.current = fresh;
+        try {
+          fresh.start();
+        } catch {
+          // If start fails, try once more after a tick
+          setTimeout(() => {
+            if (wantActiveRef.current) {
+              try { fresh.start(); } catch {}
+            }
+            isRestartingRef.current = false;
+          }, 100);
+          return;
         }
-      }, 200);
-    }
+      }
+      isRestartingRef.current = false;
+    };
+
+    return rec;
   }, [appendTranscript, setInterimText, resetSilenceTimer]);
 
   const startRecording = useCallback(async (onAutoStop?: (transcript: string) => void) => {
@@ -103,41 +95,41 @@ export function useVoiceCapture() {
       return;
     }
 
-    // CRITICAL: Request microphone directly in user gesture handler
-    // This keeps the audio stream alive and prevents permission issues on mobile
+    // Acquire mic permission directly in user gesture
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
+        audio: { echoCancellation: true, noiseSuppression: true },
       });
       mediaStreamRef.current = stream;
     } catch (err) {
-      console.error('Microphone permission denied:', err);
-      alert('Microphone permission is required for voice capture.');
+      console.error('Mic permission denied:', err);
+      alert('Microphone permission is required.');
       return;
     }
 
     onAutoStopRef.current = onAutoStop || null;
-    isActiveRef.current = true;
+    wantActiveRef.current = true;
+    isRestartingRef.current = false;
 
     clearTranscript();
     setRecording(true);
     resetSilenceTimer();
-    startNewRecognitionInstance();
-  }, [clearTranscript, setRecording, resetSilenceTimer, startNewRecognitionInstance]);
+
+    const rec = buildRecognition();
+    if (rec) {
+      recognitionRef.current = rec;
+      rec.start();
+    }
+  }, [clearTranscript, setRecording, resetSilenceTimer, buildRecognition]);
 
   const stopRecording = useCallback((): string => {
-    isActiveRef.current = false;
+    // Signal we no longer want to be active BEFORE aborting
+    wantActiveRef.current = false;
+    isRestartingRef.current = false;
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
-    }
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = null;
     }
 
     const transcript = useAppStore.getState().liveTranscript.trim();
@@ -148,9 +140,9 @@ export function useVoiceCapture() {
       recognitionRef.current = null;
     }
 
-    // Release the media stream
+    // Release media stream
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current.getTracks().forEach(t => t.stop());
       mediaStreamRef.current = null;
     }
 
