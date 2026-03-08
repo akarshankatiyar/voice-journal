@@ -8,8 +8,8 @@ import { YouTubeNotesButton } from '@/components/youtube/YouTubeNotesButton';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
-import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Lightbulb, Mic, GraduationCap, Users, CheckSquare, Zap } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Mic, GraduationCap, Users, CheckSquare, Lightbulb } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const container = {
   hidden: { opacity: 0 },
@@ -30,7 +30,6 @@ function timeAgoShort(dateStr: string) {
 export default function Home() {
   const isRecording = useAppStore((s) => s.isRecording);
   const liveTranscript = useAppStore((s) => s.liveTranscript);
-  const navigate = useNavigate();
   const { fetchDailySummary, dailySummary, isProcessing } = useAIProcessing();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
@@ -48,8 +47,6 @@ export default function Home() {
     : null;
 
   const [summaryText, setSummaryText] = useState<string>('');
-  const [smartPrompt, setSmartPrompt] = useState<string>('');
-  const [promptLink, setPromptLink] = useState<string>('/tasks');
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   const loadDailySummary = useCallback(async () => {
@@ -59,17 +56,13 @@ export default function Home() {
       const result = await fetchDailySummary(dayData);
       if (result) {
         setSummaryText(result.summary);
-        setSmartPrompt(result.smart_prompt);
-        setPromptLink(result.prompt_link || '/tasks');
       }
     }
     setSummaryLoading(false);
   }, [fetchDailySummary]);
 
   useEffect(() => {
-    // Load summary on mount
     loadDailySummary();
-    // Refresh smart prompt every 30 minutes
     const interval = setInterval(loadDailySummary, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadDailySummary]);
@@ -80,6 +73,24 @@ export default function Home() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       {/* Top Navbar */}
       <TopNavbar />
+
+      {/* Mic + YouTube buttons side by side */}
+      <motion.div variants={item} className="flex justify-center gap-8">
+        <div className="flex flex-col items-center gap-2">
+          <MicButton size="sm" />
+          <span className="text-xs font-body text-muted-foreground flex items-center gap-1">
+            <Mic className="h-3 w-3" /> Manual Record
+          </span>
+        </div>
+        <YouTubeNotesButton />
+      </motion.div>
+
+      {/* Live transcript (shown when recording) */}
+      {(isRecording || liveTranscript) && (
+        <motion.div variants={item}>
+          <LiveTranscript />
+        </motion.div>
+      )}
 
       {/* Component 1 — Live Status Card */}
       <motion.div variants={item} className="glass-card p-5">
@@ -132,52 +143,6 @@ export default function Home() {
             : summaryText || (hasData ? 'Tap 🔄 to generate your daily brief.' : 'Your daily brief will appear here once you start capturing.')}
         </p>
       </motion.div>
-
-      {/* Component 3 — Smart Prompt Card */}
-      <motion.div variants={item}>
-        <button
-          onClick={() => navigate(promptLink)}
-          className="w-full text-left glass-card-hover p-5 group"
-        >
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-gold/10 shrink-0">
-              <Lightbulb className="h-5 w-5 text-gold" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-body text-foreground group-hover:text-foreground/90 transition-colors">
-                {smartPrompt || (hasData
-                  ? `You have ${pendingTasks} pending tasks — want to review them?`
-                  : 'Start recording to get personalized suggestions here.')}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                Tap to explore <ArrowRight className="h-3 w-3" />
-              </p>
-            </div>
-          </div>
-        </button>
-      </motion.div>
-
-      {/* YouTube Notes Button */}
-      <motion.div variants={item}>
-        <YouTubeNotesButton />
-      </motion.div>
-
-      {/* Manual Record Button (secondary) */}
-      <motion.div variants={item} className="flex justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <MicButton size="sm" />
-          <span className="text-xs font-body text-muted-foreground flex items-center gap-1">
-            <Mic className="h-3 w-3" /> Manual Record
-          </span>
-        </div>
-      </motion.div>
-
-      {/* Live transcript (shown when recording) */}
-      {(isRecording || liveTranscript) && (
-        <motion.div variants={item}>
-          <LiveTranscript />
-        </motion.div>
-      )}
 
       {/* Recent Activity */}
       <motion.div variants={item}>
