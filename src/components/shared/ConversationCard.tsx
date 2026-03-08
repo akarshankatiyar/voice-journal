@@ -31,11 +31,7 @@ export function ConversationCard({ conv, onCardClick }: { conv: Conversation; on
   const section = sectionMap[conv.type] || sectionMap.personal;
 
   const handleClick = () => {
-    if (onCardClick) {
-      onCardClick(conv);
-    } else {
-      navigate(section.path);
-    }
+    navigate(section.path);
   };
 
   return (

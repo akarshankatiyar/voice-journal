@@ -2,8 +2,25 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
+import { Handshake, Users, CheckCircle, X, Edit2, Save, Share2, Trash2, Copy, MessageCircle, Mail } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -13,6 +30,8 @@ export default function MeetingNotes() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const deleteMeetingNote = useConversationStore((s) => s.deleteMeetingNote);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const detail = meetingNotes.find(m => m.id === selectedId);
 
   const handleEdit = () => {
@@ -32,6 +51,28 @@ export default function MeetingNotes() {
   const handleSave = () => {
     // In a real app, this would update the data in your backend/store
     setIsEditing(false);
+  };
+
+  const handleShare = (method: string) => {
+    if (!detail) return;
+    const text = `${detail.title}\n\n${detail.structuredNotes}`;
+    if (method === 'copy') {
+      navigator.clipboard.writeText(text);
+      toast.success('Notes copied to clipboard');
+    } else if (method === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } else if (method === 'email') {
+      window.open(`mailto:?subject=${encodeURIComponent(detail.title)}&body=${encodeURIComponent(text)}`, '_blank');
+    }
+  };
+
+  const handleDelete = () => {
+    if (detail) {
+      deleteMeetingNote(detail.id);
+      setDeleteOpen(false);
+      setSelectedId(null);
+      toast.success('Note deleted');
+    }
   };
 
   return (
@@ -84,12 +125,31 @@ export default function MeetingNotes() {
             >
               <div className="flex justify-between items-start mb-4">
                 <h2 className="font-display text-xl text-foreground">{detail.title}</h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleEdit}
-                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
-                  >
+                <div className="flex items-center gap-1">
+                  {/* Share */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors">
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleShare('copy')} className="gap-2">
+                        <Copy className="h-4 w-4" /> Copy to Clipboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare('whatsapp')} className="gap-2">
+                        <MessageCircle className="h-4 w-4" /> Share via WhatsApp
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare('email')} className="gap-2">
+                        <Mail className="h-4 w-4" /> Share via Email
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <button onClick={handleEdit} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors">
                     <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setDeleteOpen(true)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors">
+                    <Trash2 className="h-4 w-4" />
                   </button>
                   <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2"><X className="h-5 w-5" /></button>
                 </div>
@@ -229,6 +289,23 @@ export default function MeetingNotes() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This note will be permanently deleted and cannot be restored.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }

@@ -6,6 +6,7 @@ import { GraduationCap, Search, X, Edit2, Save } from 'lucide-react';
 import { AcademicNoteDetailModal } from '@/components/notes/AcademicNoteDetailModal';
 import { AcademicNoteEditModal } from '@/components/notes/AcademicNoteEditModal';
 import { YouTubeImportDialog } from '@/components/youtube/YouTubeImportDialog';
+import { toast } from 'sonner';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -16,6 +17,7 @@ export default function AcademicNotes() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const academicNotes = useConversationStore((s) => s.academicNotes);
+  const deleteAcademicNote = useConversationStore((s) => s.deleteAcademicNote);
   const filtered = academicNotes.filter(n =>
     n.title.toLowerCase().includes(search.toLowerCase()) ||
     n.subject.toLowerCase().includes(search.toLowerCase())
@@ -103,6 +105,10 @@ export default function AcademicNotes() {
         detail={detail && !isEditing ? detail : null}
         onClose={() => setSelectedNote(null)}
         onEdit={handleEdit}
+        onDelete={(id) => {
+          deleteAcademicNote(id);
+          setSelectedNote(null);
+        }}
       />
 
       <AcademicNoteEditModal

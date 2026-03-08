@@ -42,13 +42,7 @@ export function TopNavbar() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      <div className="flex items-center justify-end mb-6">
 
         <div className="flex items-center gap-2">
           {/* Bell — Notifications */}

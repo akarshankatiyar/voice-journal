@@ -14,6 +14,9 @@ interface ConversationStore {
   addTasks: (tasks: Task[]) => void;
   addIdeas: (ideas: Idea[]) => void;
   toggleTask: (id: string) => void;
+  deleteAcademicNote: (id: string) => void;
+  deleteMeetingNote: (id: string) => void;
+  deleteConversation: (id: string) => void;
 }
 
 export const useConversationStore = create<ConversationStore>((set) => ({
@@ -30,5 +33,14 @@ export const useConversationStore = create<ConversationStore>((set) => ({
   addIdeas: (newIdeas) => set((s) => ({ ideas: [...newIdeas, ...s.ideas] })),
   toggleTask: (id) => set((s) => ({
     tasks: s.tasks.map((t) => t.id === id ? { ...t, isDone: !t.isDone } : t),
+  })),
+  deleteAcademicNote: (id) => set((s) => ({
+    academicNotes: s.academicNotes.filter((n) => n.id !== id),
+  })),
+  deleteMeetingNote: (id) => set((s) => ({
+    meetingNotes: s.meetingNotes.filter((n) => n.id !== id),
+  })),
+  deleteConversation: (id) => set((s) => ({
+    conversations: s.conversations.filter((c) => c.id !== id),
   })),
 }));
