@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit2, Share2, Trash2, Copy, MessageCircle, Mail, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { X, Edit2, Share2, Trash2, Copy, MessageCircle, Mail, Link as LinkIcon, Loader2, Globe, AlertTriangle } from 'lucide-react';
 import type { AcademicNote } from '@/data/mockData';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import { toast } from 'sonner';
