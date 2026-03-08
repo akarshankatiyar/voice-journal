@@ -98,16 +98,6 @@ export function YouTubeImportDialog({ open: externalOpen, onOpenChange }: { open
 
   return (
     <>
-      <Button
-        onClick={() => setOpen(true)}
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10 px-3 py-1.5 text-xs"
-      >
-        <img src="/images/youtube-icon.svg" alt="YouTube" className="h-4 w-4" />
-        Import
-      </Button>
-
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
