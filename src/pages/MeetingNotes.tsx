@@ -125,12 +125,31 @@ export default function MeetingNotes() {
             >
               <div className="flex justify-between items-start mb-4">
                 <h2 className="font-display text-xl text-foreground">{detail.title}</h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleEdit}
-                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
-                  >
+                <div className="flex items-center gap-1">
+                  {/* Share */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors">
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleShare('copy')} className="gap-2">
+                        <Copy className="h-4 w-4" /> Copy to Clipboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare('whatsapp')} className="gap-2">
+                        <MessageCircle className="h-4 w-4" /> Share via WhatsApp
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare('email')} className="gap-2">
+                        <Mail className="h-4 w-4" /> Share via Email
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <button onClick={handleEdit} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors">
                     <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setDeleteOpen(true)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors">
+                    <Trash2 className="h-4 w-4" />
                   </button>
                   <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2"><X className="h-5 w-5" /></button>
                 </div>
