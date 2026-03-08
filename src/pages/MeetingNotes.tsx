@@ -40,7 +40,7 @@ export default function MeetingNotes() {
         <p className="text-sm text-muted-foreground">AI-structured notes from your meetings</p>
       </motion.div>
 
-      {mockMeetingNotes.length === 0 ? (
+      {meetingNotes.length === 0 ? (
         <EmptyState icon={<Handshake className="h-12 w-12" />} title="No meeting notes" description="Record a meeting and AI will auto-generate structured notes." />
       ) : (
         <div className="space-y-4">
