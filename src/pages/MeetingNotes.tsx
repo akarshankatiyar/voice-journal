@@ -53,6 +53,28 @@ export default function MeetingNotes() {
     setIsEditing(false);
   };
 
+  const handleShare = (method: string) => {
+    if (!detail) return;
+    const text = `${detail.title}\n\n${detail.structuredNotes}`;
+    if (method === 'copy') {
+      navigator.clipboard.writeText(text);
+      toast.success('Notes copied to clipboard');
+    } else if (method === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } else if (method === 'email') {
+      window.open(`mailto:?subject=${encodeURIComponent(detail.title)}&body=${encodeURIComponent(text)}`, '_blank');
+    }
+  };
+
+  const handleDelete = () => {
+    if (detail) {
+      deleteMeetingNote(detail.id);
+      setDeleteOpen(false);
+      setSelectedId(null);
+      toast.success('Note deleted');
+    }
+  };
+
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
