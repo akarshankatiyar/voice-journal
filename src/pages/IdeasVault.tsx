@@ -13,7 +13,8 @@ export default function IdeasVault() {
   const [filter, setFilter] = useState('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>(null);
-  const filtered = filter === 'all' ? mockIdeas : mockIdeas.filter(i => i.category === filter);
+  const ideas = useConversationStore((s) => s.ideas);
+  const filtered = filter === 'all' ? ideas : ideas.filter(i => i.category === filter);
 
   const handleEdit = (idea: any) => {
     setEditData({ ...idea });
