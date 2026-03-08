@@ -17,10 +17,10 @@ export function useVoiceCapture() {
   const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
   const wantActiveRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track pending interim text so we can carry it across restarts
   const pendingInterimRef = useRef('');
-  // Track if last error was no-speech for longer restart delay
   const lastErrorRef = useRef<string | null>(null);
+  // Track when buildAndStart fires to detect replayed audio
+  const restartTimestampRef = useRef<number>(0);
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
