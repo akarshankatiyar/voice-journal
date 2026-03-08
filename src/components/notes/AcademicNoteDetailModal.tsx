@@ -169,6 +169,36 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
                 </div>
               </div>
               <div className="overflow-y-auto flex-1 min-h-0">
+                {/* No transcript tip for YouTube notes */}
+                {detail.source === 'youtube' && detail.hasTranscript === false && (
+                  <div className="flex items-start gap-2 bg-accent/10 border border-accent/20 rounded-lg p-3 mb-4">
+                    <AlertTriangle className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      <strong className="text-foreground">Tip:</strong> Transcript wasn't available for this video, so these notes are AI-generated based on the video's metadata. Ye pura same nahi ho sakta hai jo padhaya hai lecture mein — use these as a reference and verify key points.
+                    </p>
+                  </div>
+                )}
+
+                {/* Language selector */}
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div className="flex gap-1">
+                    {(['english', 'hindi', 'hinglish'] as const).map(lang => (
+                      <button
+                        key={lang}
+                        onClick={() => setLanguage(lang)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+                          language === lang
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {lang === 'english' ? 'English' : lang === 'hindi' ? 'हिंदी' : 'Hinglish'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-1.5 mb-4">
                   {detail.keyConcepts.map(c => (
                     <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{c}</span>
