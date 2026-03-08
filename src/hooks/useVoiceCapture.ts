@@ -73,7 +73,7 @@ export function useVoiceCapture() {
 
     const normalizedNew = newText.trim().toLowerCase();
     const normalizedFull = fullTranscript.trim().toLowerCase();
-    const tail = normalizedFull.slice(-300);
+    const tail = normalizedFull.slice(-500);
 
     // Find overlapping prefix
     const minOverlap = Math.min(normalizedNew.length, 10);
