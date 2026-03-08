@@ -34,4 +34,13 @@ export const useConversationStore = create<ConversationStore>((set) => ({
   toggleTask: (id) => set((s) => ({
     tasks: s.tasks.map((t) => t.id === id ? { ...t, isDone: !t.isDone } : t),
   })),
+  deleteAcademicNote: (id) => set((s) => ({
+    academicNotes: s.academicNotes.filter((n) => n.id !== id),
+  })),
+  deleteMeetingNote: (id) => set((s) => ({
+    meetingNotes: s.meetingNotes.filter((n) => n.id !== id),
+  })),
+  deleteConversation: (id) => set((s) => ({
+    conversations: s.conversations.filter((c) => c.id !== id),
+  })),
 }));

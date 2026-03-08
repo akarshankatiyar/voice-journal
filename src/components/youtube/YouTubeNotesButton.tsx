@@ -120,7 +120,7 @@ export function YouTubeNotesButton() {
         onClick={() => setOpen(true)}
         className="flex flex-col items-center gap-2"
       >
-        <div className="h-16 w-16 rounded-full border-2 border-destructive/30 bg-destructive/5 flex items-center justify-center hover:bg-destructive/10 transition-colors">
+        <div className="h-14 w-14 rounded-full border-2 border-destructive/30 bg-destructive/5 flex items-center justify-center hover:bg-destructive/10 transition-colors">
           <img src={YT_ICON} alt="YouTube" className="h-7 w-7 object-contain" />
         </div>
         <span className="text-xs font-body text-muted-foreground">YouTube Notes</span>

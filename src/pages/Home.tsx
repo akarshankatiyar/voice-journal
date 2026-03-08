@@ -78,7 +78,7 @@ export default function Home() {
       <TopNavbar />
 
       {/* Mic + YouTube buttons side by side */}
-      <motion.div variants={item} className="flex justify-center gap-8">
+      <motion.div variants={item} className="flex justify-center items-start gap-8">
         <div className="flex flex-col items-center gap-2">
           <MicButton size="sm" />
           <span className="text-xs font-body text-muted-foreground flex items-center gap-1">
