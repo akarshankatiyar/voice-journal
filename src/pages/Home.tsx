@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
 import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Mic, GraduationCap, Users, CheckSquare, Lightbulb } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ConversationDetailModal } from '@/components/shared/ConversationDetailModal';
 import type { Conversation } from '@/data/mockData';
 
@@ -104,16 +104,20 @@ export default function Home() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { icon: GraduationCap, label: 'Lectures', value: lecturesCaptured, color: 'text-vc-blue' },
-            { icon: Users, label: 'Meetings', value: meetingsCaptured, color: 'text-gold' },
-            { icon: Lightbulb, label: 'Ideas', value: ideasCaptured, color: 'text-violet-400' },
-            { icon: CheckSquare, label: 'Tasks', value: pendingTasks, color: 'text-emerald-500' },
+            { icon: GraduationCap, label: 'Lectures', value: lecturesCaptured, color: 'text-vc-blue', path: '/academic-notes' },
+            { icon: Users, label: 'Meetings', value: meetingsCaptured, color: 'text-gold', path: '/meeting-notes' },
+            { icon: Lightbulb, label: 'Ideas', value: ideasCaptured, color: 'text-violet-400', path: '/ideas' },
+            { icon: CheckSquare, label: 'Tasks', value: pendingTasks, color: 'text-emerald-500', path: '/tasks' },
           ].map((stat) => (
-            <div key={stat.label} className="bg-card/60 rounded-lg p-3 text-center border border-primary/5">
+            <Link
+              key={stat.label}
+              to={stat.path}
+              className="bg-card/60 rounded-lg p-3 text-center border border-primary/5 hover:border-primary/20 hover:bg-card/80 transition-all cursor-pointer"
+            >
               <stat.icon className={`h-4 w-4 mx-auto mb-1.5 ${stat.color}`} />
               <p className="font-display text-xl text-foreground">{stat.value}</p>
               <p className="text-[10px] font-body text-muted-foreground uppercase tracking-wider mt-0.5">{stat.label}</p>
-            </div>
+            </Link>
           ))}
         </div>
 
