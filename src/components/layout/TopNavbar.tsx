@@ -44,16 +44,7 @@ export function TopNavbar() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        {/* Left — Hamburger */}
-        {!sidebarOpen && (
-          <button
-            onClick={toggleSidebar}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        )}
-        {sidebarOpen && <div />}
+        <div />
 
         {/* Center — Date */}
         <p className="text-sm font-body text-muted-foreground tracking-wide hidden sm:block">
