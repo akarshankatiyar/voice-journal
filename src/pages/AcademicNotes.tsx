@@ -76,7 +76,7 @@ export default function AcademicNotes() {
               <div className="flex items-center gap-2 mb-2">
                 {note.source === 'youtube' ? (
                   <span className="text-xs font-body font-medium text-destructive bg-destructive/15 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <img src="/images/youtube-icon.svg" alt="YouTube" className="h-3.5 w-3.5" /> YouTube
+                    <img src="/images/youtube-icon.svg" alt="YouTube" className="h-4 w-4" />
                   </span>
                 ) : (
                   <span className="text-xs font-body font-medium text-vc-blue-light bg-vc-blue/15 px-2 py-0.5 rounded-full">
