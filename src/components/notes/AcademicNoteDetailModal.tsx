@@ -70,7 +70,7 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={e => e.stopPropagation()}
-              className="glass-card max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"
+              className="glass-card max-w-2xl w-full max-h-[80vh] flex flex-col p-6"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
