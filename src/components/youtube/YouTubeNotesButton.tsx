@@ -77,6 +77,7 @@ export function YouTubeNotesButton() {
         createdAt: now,
         source: 'youtube',
         videoId: data.videoId,
+        hasTranscript: data.hasTranscript !== false,
       });
 
       setLastNoteId(noteId);
