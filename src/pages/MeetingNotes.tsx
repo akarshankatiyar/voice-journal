@@ -94,7 +94,7 @@ export default function MeetingNotes() {
                   <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2"><X className="h-5 w-5" /></button>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{detail.summary}</p>
+              <MarkdownRenderer content={detail.summary} showToc={false} className="mb-4" />
               <div className="space-y-4">
                 <div>
                   <h4 className="text-xs font-body font-medium text-primary uppercase tracking-wider mb-2">Attendees</h4>
