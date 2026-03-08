@@ -13,6 +13,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogPortal,
+  AlertDialogOverlay,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
