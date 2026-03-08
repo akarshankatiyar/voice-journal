@@ -122,25 +122,25 @@ export default function Home() {
             {/* Record half */}
             <button
               onClick={handleMicClick}
-              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
             >
-              <span className={`text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
-              <span className="font-display text-base text-foreground">
+              <span className={`text-xl sm:text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
+              <span className="font-display text-sm sm:text-base text-foreground truncate">
                 {isRecording ? 'Stop' : 'Record'}
               </span>
-              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />}
+              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />}
             </button>
 
             {/* Divider */}
             <div className="w-px bg-primary/10 my-3" />
 
-            {/* Video Notes half */}
+            {/* Video to Notes — opens YouTube import */}
             <button
               onClick={() => setYoutubeOpen(true)}
-              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
             >
-              <span className="text-2xl">📺</span>
-              <span className="font-display text-base text-foreground">Video Notes</span>
+              <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
+              <span className="font-display text-sm sm:text-base text-foreground truncate">Video to Notes</span>
             </button>
           </div>
         </div>
