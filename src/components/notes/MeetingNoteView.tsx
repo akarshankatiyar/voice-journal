@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { CheckSquare, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface ActionItem {
   task: string;
