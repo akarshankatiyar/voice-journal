@@ -76,7 +76,7 @@ export function AppSidebar() {
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span>{item.label}</span>
-              {item.label === "Today's Text" && isRecording && (
+              {item.label === 'Daily Capture' && isRecording && (
                 <span className="ml-auto h-2 w-2 rounded-full bg-recording-red animate-pulse-recording" />
               )}
             </NavLink>

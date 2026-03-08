@@ -4,14 +4,15 @@ import { MicButton } from '@/components/recording/MicButton';
 import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { TopNavbar } from '@/components/layout/TopNavbar';
-import { YouTubeNotesButton } from '@/components/youtube/YouTubeNotesButton';
+import { YouTubeImportDialog } from '@/components/youtube/YouTubeImportDialog';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
-import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Mic, GraduationCap, Users, CheckSquare, Lightbulb } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ConversationDetailModal } from '@/components/shared/ConversationDetailModal';
-import type { Conversation } from '@/data/mockData';
+import { useVoiceCapture } from '@/hooks/useVoiceCapture';
+import { useAutoProcess } from '@/hooks/useAutoProcess';
+import { ArrowRight, Sparkles, RefreshCw, GraduationCap, Users, CheckSquare, Lightbulb, Calendar, Brain, Monitor, Quote } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 
 const container = {
   hidden: { opacity: 0 },
@@ -29,15 +30,24 @@ function timeAgoShort(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+const typeColorBorder: Record<string, string> = {
+  academic: 'border-l-[hsl(215,100%,50%)]',
+  meeting: 'border-l-[hsl(42,100%,50%)]',
+  personal: 'border-l-[hsl(0,0%,60%)]',
+  mixed: 'border-l-[hsl(0,0%,60%)]',
+};
+
 export default function Home() {
   const isRecording = useAppStore((s) => s.isRecording);
   const liveTranscript = useAppStore((s) => s.liveTranscript);
-  const { fetchDailySummary, dailySummary, isProcessing } = useAIProcessing();
+  const { fetchDailySummary } = useAIProcessing();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
   const academicNotes = useConversationStore((s) => s.academicNotes);
   const meetingNotes = useConversationStore((s) => s.meetingNotes);
   const ideas = useConversationStore((s) => s.ideas);
+  const { startRecording, stopRecording } = useVoiceCapture();
+  const { processAndSave } = useAutoProcess();
 
   const pendingTasks = tasks.filter(t => !t.isDone).length;
   const lecturesCaptured = academicNotes.length;
@@ -50,19 +60,17 @@ export default function Home() {
 
   const [summaryText, setSummaryText] = useState<string>('');
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
 
   const loadDailySummary = useCallback(async () => {
     setSummaryLoading(true);
     const dayData = conversations.map(c => `[${c.type}] ${c.title}: ${c.summary}`).join('\n');
     if (dayData.length > 10) {
       const result = await fetchDailySummary(dayData);
-      if (result) {
-        setSummaryText(result.summary);
-      }
+      if (result) setSummaryText(result.summary);
     }
     setSummaryLoading(false);
-  }, [fetchDailySummary]);
+  }, [fetchDailySummary, conversations]);
 
   useEffect(() => {
     loadDailySummary();
@@ -72,83 +80,156 @@ export default function Home() {
 
   const hasData = conversations.length > 0;
 
+  const handleMicClick = () => {
+    if (isRecording) {
+      const transcript = stopRecording();
+      if (transcript && transcript.length > 10) processAndSave(transcript);
+    } else {
+      startRecording((transcript) => processAndSave(transcript));
+    }
+  };
+
+  const statTiles = [
+    { icon: GraduationCap, label: 'Lectures', value: lecturesCaptured, bg: 'bg-[hsl(215,100%,50%,0.12)]', color: 'text-vc-blue', path: '/academic-notes' },
+    { icon: Users, label: 'Meetings', value: meetingsCaptured, bg: 'bg-[hsl(42,100%,50%,0.12)]', color: 'text-gold', path: '/meeting-notes' },
+    { icon: Lightbulb, label: 'Ideas', value: ideasCaptured, bg: 'bg-[hsl(270,60%,50%,0.12)]', color: 'text-violet-400', path: '/ideas' },
+    { icon: CheckSquare, label: 'Tasks', value: pendingTasks, bg: 'bg-[hsl(142,70%,45%,0.12)]', color: 'text-emerald-500', path: '/tasks' },
+  ];
+
+  const quickAccess = [
+    { icon: Calendar, label: 'Daily Capture', path: '/todays-text' },
+    { icon: GraduationCap, label: 'Study Notes', path: '/academic-notes' },
+    { icon: Brain, label: 'Memory Archive', path: '/conversations' },
+  ];
+
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      {/* Top Navbar */}
       <TopNavbar />
 
-      {/* Mic + YouTube buttons side by side */}
-      <motion.div variants={item} className="flex justify-center items-start gap-8">
-        <div className="flex flex-col items-center gap-2">
-          <MicButton size="sm" />
-          <span className="text-xs font-body text-muted-foreground flex items-center gap-1">
-            <Mic className="h-3 w-3" /> Manual Record
-          </span>
-        </div>
-        <YouTubeNotesButton />
-      </motion.div>
-
-      {/* Live transcript (shown when recording) */}
+      {/* Live transcript */}
       {(isRecording || liveTranscript) && (
         <motion.div variants={item}>
           <LiveTranscript />
         </motion.div>
       )}
 
-      {/* Component 1 — Live Status Card */}
+      {/* Capture Bar */}
+      <motion.div variants={item}>
+        <div className="rounded-2xl overflow-hidden border border-primary/10" style={{
+          background: 'linear-gradient(90deg, hsl(215 100% 50% / 0.08) 0%, hsl(0 100% 50% / 0.08) 100%)'
+        }}>
+          <div className="flex items-stretch">
+            {/* Record half */}
+            <button
+              onClick={handleMicClick}
+              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+            >
+              <span className={`text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
+              <span className="font-display text-base text-foreground">
+                {isRecording ? 'Stop' : 'Record'}
+              </span>
+              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />}
+            </button>
+
+            {/* Divider */}
+            <div className="w-px bg-primary/10 my-3" />
+
+            {/* Video Notes half */}
+            <button
+              onClick={() => setYoutubeOpen(true)}
+              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+            >
+              <span className="text-2xl">📺</span>
+              <span className="font-display text-base text-foreground">Video Notes</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      <YouTubeImportDialog open={youtubeOpen} onOpenChange={setYoutubeOpen} />
+
+      {/* Status Card */}
       <motion.div variants={item} className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-display text-lg text-foreground">EchoMind is Active</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+            </span>
+            <span className="font-display text-xl text-foreground font-bold">EchoMind is Active</span>
+          </div>
+          {lastCaptured && (
+            <span className="text-[10px] font-body text-muted-foreground bg-card/60 px-2 py-1 rounded-full border border-primary/5">
+              Last: {lastCaptured}
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { icon: GraduationCap, label: 'Lectures', value: lecturesCaptured, color: 'text-vc-blue', path: '/academic-notes' },
-            { icon: Users, label: 'Meetings', value: meetingsCaptured, color: 'text-gold', path: '/meeting-notes' },
-            { icon: Lightbulb, label: 'Ideas', value: ideasCaptured, color: 'text-violet-400', path: '/ideas' },
-            { icon: CheckSquare, label: 'Tasks', value: pendingTasks, color: 'text-emerald-500', path: '/tasks' },
-          ].map((stat) => (
+          {statTiles.map((stat) => (
             <Link
               key={stat.label}
               to={stat.path}
-              className="bg-card/60 rounded-lg p-3 text-center border border-primary/5 hover:border-primary/20 hover:bg-card/80 transition-all cursor-pointer"
+              className={`${stat.bg} rounded-xl p-3 text-center border border-primary/5 hover:border-primary/20 transition-all cursor-pointer`}
             >
               <stat.icon className={`h-4 w-4 mx-auto mb-1.5 ${stat.color}`} />
-              <p className="font-display text-xl text-foreground">{stat.value}</p>
+              <p className="font-display text-2xl text-foreground font-bold">{stat.value}</p>
               <p className="text-[10px] font-body text-muted-foreground uppercase tracking-wider mt-0.5">{stat.label}</p>
+              {/* Mini activity bar */}
+              <div className="flex items-end justify-center gap-[2px] mt-2 h-3">
+                {[0.3, 0.6, 0.4, 0.8, 0.5, 0.9, 0.7].map((h, i) => (
+                  <div
+                    key={i}
+                    className={`w-1 rounded-full ${stat.color.replace('text-', 'bg-')} opacity-40`}
+                    style={{ height: `${h * 100}%` }}
+                  />
+                ))}
+              </div>
             </Link>
           ))}
         </div>
-
-        <p className="text-xs font-body text-muted-foreground mt-3">
-          {lastCaptured ? `Last captured: ${lastCaptured}` : 'Waiting to capture your day...'}
-        </p>
       </motion.div>
 
-      {/* Component 2 — Daily Summary Card */}
-      <motion.div variants={item} className="glass-card p-5">
-        <div className="flex items-center justify-between mb-3">
+      {/* Today's Brief — Premium diary style */}
+      <motion.div variants={item} className="rounded-xl p-5 relative overflow-hidden" style={{ background: '#0D1B2A' }}>
+        <Quote className="absolute top-3 left-4 h-8 w-8 text-[hsl(var(--gold))] opacity-30" />
+        <div className="flex items-center justify-between mb-3 relative z-10">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-gold" />
-            <span className="font-display text-base text-foreground">Today's Brief</span>
+            <Sparkles className="h-4 w-4 text-[hsl(var(--gold))]" />
+            <span className="font-display text-base text-[hsl(var(--gold))]">Today's Brief</span>
           </div>
           <button
             onClick={loadDailySummary}
             disabled={summaryLoading}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-md text-white/40 hover:text-white/80 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${summaryLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
         <p
-          className="text-sm text-foreground/80 leading-relaxed italic"
+          className="text-lg text-white/80 leading-relaxed italic relative z-10"
           style={{ fontFamily: "'Dancing Script', cursive, serif" }}
         >
           {summaryLoading
             ? 'Generating your daily brief...'
             : summaryText || (hasData ? 'Tap 🔄 to generate your daily brief.' : 'Your daily brief will appear here once you start capturing.')}
         </p>
+      </motion.div>
+
+      {/* Quick Access */}
+      <motion.div variants={item}>
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+          {quickAccess.map((qa) => (
+            <Link
+              key={qa.path}
+              to={qa.path}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-primary/15 to-primary/5 border border-primary/10 text-foreground text-sm font-body whitespace-nowrap hover:from-primary/25 hover:to-primary/10 transition-all shrink-0"
+            >
+              <qa.icon className="h-4 w-4 text-primary" />
+              {qa.label}
+            </Link>
+          ))}
+        </div>
       </motion.div>
 
       {/* Recent Activity */}
@@ -161,12 +242,12 @@ export default function Home() {
         </div>
         <div className="space-y-3">
           {conversations.slice(0, 3).map(conv => (
-            <ConversationCard key={conv.id} conv={conv} onCardClick={setSelectedConv} />
+            <div key={conv.id} className={`border-l-4 rounded-r-xl ${typeColorBorder[conv.type] || typeColorBorder.personal}`}>
+              <ConversationCard conv={conv} />
+            </div>
           ))}
         </div>
       </motion.div>
-
-      <ConversationDetailModal conversation={selectedConv} open={!!selectedConv} onOpenChange={(o) => !o && setSelectedConv(null)} />
     </motion.div>
   );
 }

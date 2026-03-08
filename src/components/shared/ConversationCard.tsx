@@ -63,7 +63,7 @@ export function ConversationCard({ conv, onCardClick }: { conv: Conversation; on
 
       {conv.linkedSection && (
         <p className="text-xs text-primary mt-1">
-          📚 Saved to {conv.linkedSection === 'academic_notes' ? 'Academic Notes' : 'Meeting Notes'} →
+          📚 Saved to {conv.linkedSection === 'academic_notes' ? 'Study Notes' : 'Meeting Notes'} →
         </p>
       )}
     </button>
