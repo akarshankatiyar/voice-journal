@@ -13,7 +13,9 @@ export function useVoiceCapture() {
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
-  const isRestartingRef = useRef(false);
+  const isActiveRef = useRef(false); // tracks desired recording state
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -27,9 +29,17 @@ export function useVoiceCapture() {
     }, SILENCE_TIMEOUT_MS);
   }, []);
 
-  const createRecognition = useCallback(() => {
+  const startNewRecognitionInstance = useCallback(() => {
+    if (!isActiveRef.current) return;
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
+    if (!SpeechRecognition) return;
+
+    // Clean up old instance
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -53,74 +63,97 @@ export function useVoiceCapture() {
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      // For transient errors, onend will handle the restart
-      if (event.error === 'aborted' || event.error === 'network') {
-        // These are expected during restart cycles, ignore
-        return;
-      }
+      console.warn('Speech recognition error:', event.error);
+      // Don't do anything here — let onend handle restart
     };
 
     recognition.onend = () => {
-      // Only restart if we're still supposed to be recording
-      if (useAppStore.getState().isRecording && !isRestartingRef.current) {
-        isRestartingRef.current = true;
-        // Create a fresh instance to avoid stale state
-        const newRecognition = createRecognition();
-        if (newRecognition) {
-          recognitionRef.current = newRecognition;
-          try {
-            newRecognition.start();
-          } catch (e) {
-            // If start fails, retry after a brief delay
-            setTimeout(() => {
-              if (useAppStore.getState().isRecording) {
-                try { newRecognition.start(); } catch {}
-              }
-              isRestartingRef.current = false;
-            }, 100);
-            return;
+      // The API stopped on its own (phrase end, network blip, etc.)
+      // Restart immediately if we're still supposed to be recording
+      if (isActiveRef.current) {
+        // Clear any pending restart
+        if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+        // Small delay to avoid rapid-fire restarts
+        restartTimeoutRef.current = setTimeout(() => {
+          if (isActiveRef.current) {
+            startNewRecognitionInstance();
           }
-        }
-        isRestartingRef.current = false;
+        }, 50);
       }
     };
 
-    return recognition;
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (e) {
+      // If it fails, retry once after a brief delay
+      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = setTimeout(() => {
+        if (isActiveRef.current) {
+          startNewRecognitionInstance();
+        }
+      }, 200);
+    }
   }, [appendTranscript, setInterimText, resetSilenceTimer]);
 
-  const startRecording = useCallback((onAutoStop?: (transcript: string) => void) => {
+  const startRecording = useCallback(async (onAutoStop?: (transcript: string) => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('Speech Recognition is not supported in this browser. Please use Chrome.');
       return;
     }
 
+    // CRITICAL: Request microphone directly in user gesture handler
+    // This keeps the audio stream alive and prevents permission issues on mobile
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+      mediaStreamRef.current = stream;
+    } catch (err) {
+      console.error('Microphone permission denied:', err);
+      alert('Microphone permission is required for voice capture.');
+      return;
+    }
+
     onAutoStopRef.current = onAutoStop || null;
-    isRestartingRef.current = false;
+    isActiveRef.current = true;
 
-    const recognition = createRecognition();
-    if (!recognition) return;
-
-    recognitionRef.current = recognition;
     clearTranscript();
     setRecording(true);
-    recognition.start();
     resetSilenceTimer();
-  }, [clearTranscript, setRecording, resetSilenceTimer, createRecognition]);
+    startNewRecognitionInstance();
+  }, [clearTranscript, setRecording, resetSilenceTimer, startNewRecognitionInstance]);
 
   const stopRecording = useCallback((): string => {
+    isActiveRef.current = false;
+
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+
     const transcript = useAppStore.getState().liveTranscript.trim();
     setRecording(false);
-    isRestartingRef.current = false;
+
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
     }
+
+    // Release the media stream
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+
     setInterimText('');
     return transcript;
   }, [setInterimText, setRecording]);
