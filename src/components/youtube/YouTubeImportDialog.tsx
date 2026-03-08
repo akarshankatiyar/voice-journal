@@ -107,7 +107,7 @@ export function YouTubeImportDialog() {
         variant="outline"
         className="flex items-center gap-2 border-destructive/30 text-destructive hover:bg-destructive/10"
       >
-        📺 Import from YouTube
+        <img src="/images/youtube-icon.svg" alt="YouTube" className="h-4 w-4" /> Import from YouTube
       </Button>
 
       <Dialog open={open} onOpenChange={handleClose}>
