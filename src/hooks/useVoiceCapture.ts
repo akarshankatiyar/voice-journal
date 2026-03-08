@@ -9,6 +9,7 @@ interface SpeechRecognitionEvent {
 const SILENCE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 const RESTART_DELAY_MS = 100; // small delay to let browser release mic
 const NO_SPEECH_RESTART_DELAY_MS = 500; // longer delay when no speech detected
+const RESTART_GRACE_MS = 200; // ignore replayed results within this window after restart
 
 export function useVoiceCapture() {
   const { setRecording, appendTranscript, setInterimText, clearTranscript } = useAppStore();
@@ -17,10 +18,10 @@ export function useVoiceCapture() {
   const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
   const wantActiveRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track pending interim text so we can carry it across restarts
   const pendingInterimRef = useRef('');
-  // Track if last error was no-speech for longer restart delay
   const lastErrorRef = useRef<string | null>(null);
+  // Track when buildAndStart fires to detect replayed audio
+  const restartTimestampRef = useRef<number>(0);
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -44,22 +45,21 @@ export function useVoiceCapture() {
 
     if (normalizedNew.length === 0) return true;
 
-    // Check if the tail of the transcript already contains this text
-    // Use last 300 chars for comparison to catch overlaps from restarts
-    const tail = normalizedFull.slice(-300);
+    // Use last 500 chars for comparison to catch overlaps from restarts
+    const tail = normalizedFull.slice(-500);
 
     // Exact match at tail end
     if (tail.endsWith(normalizedNew)) return true;
 
-    // Check if new text significantly overlaps with the tail
-    // e.g. tail ends with "we apply external voltage" and new text is "external voltage across"
+    // Check if new text is a substring of the tail (catches short repeated phrases)
+    if (tail.includes(normalizedNew)) return true;
+
     // Find the longest suffix of tail that is a prefix of newText
-    const minOverlap = Math.min(normalizedNew.length, 15); // at least 15 chars overlap
+    const minOverlap = Math.min(normalizedNew.length, 8); // lowered from 15 to 8 chars
     for (let i = Math.min(tail.length, normalizedNew.length); i >= minOverlap; i--) {
       const tailSuffix = tail.slice(-i);
       if (normalizedNew.startsWith(tailSuffix)) {
-        // The new text overlaps — only append the non-overlapping part
-        return true; // treat as duplicate; the overlap handling below will add the new part
+        return true;
       }
     }
 
@@ -73,10 +73,10 @@ export function useVoiceCapture() {
 
     const normalizedNew = newText.trim().toLowerCase();
     const normalizedFull = fullTranscript.trim().toLowerCase();
-    const tail = normalizedFull.slice(-300);
+    const tail = normalizedFull.slice(-500);
 
     // Find overlapping prefix
-    const minOverlap = Math.min(normalizedNew.length, 10);
+    const minOverlap = Math.min(normalizedNew.length, 8);
     for (let i = Math.min(tail.length, normalizedNew.length); i >= minOverlap; i--) {
       const tailSuffix = tail.slice(-i);
       if (normalizedNew.startsWith(tailSuffix)) {
@@ -103,6 +103,9 @@ export function useVoiceCapture() {
     // Abort any existing instance to prevent overlapping
     abortCurrent();
 
+    // Record restart timestamp for grace period filtering
+    restartTimestampRef.current = Date.now();
+
     // Commit any pending interim text from the previous session
     if (pendingInterimRef.current.trim()) {
       const pending = pendingInterimRef.current.trim();
@@ -111,6 +114,8 @@ export function useVoiceCapture() {
         if (nonOverlapping.trim()) {
           appendTranscript(nonOverlapping);
         }
+      } else {
+        console.log('[VoiceCapture] Skipped duplicate interim on restart:', pending);
       }
       pendingInterimRef.current = '';
       setInterimText('');
@@ -124,20 +129,33 @@ export function useVoiceCapture() {
 
     rec.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
+      const msSinceRestart = Date.now() - restartTimestampRef.current;
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           const text = result[0].transcript.trim();
           if (!text) continue;
 
+          // Grace period: skip replayed audio right after a restart
+          if (msSinceRestart < RESTART_GRACE_MS) {
+            const fullTranscript = useAppStore.getState().liveTranscript;
+            const tail = fullTranscript.trim().toLowerCase().slice(-500);
+            const normalizedText = text.toLowerCase();
+            if (tail.includes(normalizedText) || tail.endsWith(normalizedText)) {
+              console.log('[VoiceCapture] Skipped replayed result within grace period:', text);
+              continue;
+            }
+          }
+
           // Check against the full transcript tail for dedup
-          if (!isDuplicateOfTail(text)) {
+          if (isDuplicateOfTail(text)) {
+            console.log('[VoiceCapture] Skipped duplicate final result:', text);
+          } else {
             const nonOverlapping = getNonOverlappingText(text);
             if (nonOverlapping.trim()) {
               appendTranscript(nonOverlapping);
             } else {
-              // Even if fully overlapping, still append the original
-              // to avoid losing genuinely repeated speech
               appendTranscript(result[0].transcript);
             }
           }
