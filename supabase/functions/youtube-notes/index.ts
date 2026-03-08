@@ -492,10 +492,6 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
         notes = { parse_error: true, raw: notesContent };
       }
     }
-          notes = { parse_error: true, raw: notesContent };
-        }
-      }
-    }
 
     console.log(`✅ Done! Type: ${type}, has transcript: ${hasTranscript}, notes length: ${JSON.stringify(notes).length}`);
 
