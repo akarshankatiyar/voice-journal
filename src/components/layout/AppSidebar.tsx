@@ -9,14 +9,14 @@ import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/todays-text', icon: Calendar, label: "Today's Text" },
-  { to: '/academic-notes', icon: GraduationCap, label: 'Academic Notes' },
-  { to: '/youtube-notes', icon: Monitor, label: 'YouTube Notes' },
+  { to: '/todays-text', icon: Calendar, label: 'Daily Capture' },
+  { to: '/academic-notes', icon: GraduationCap, label: 'Study Notes' },
+  { to: '/youtube-notes', icon: Monitor, label: 'Video Notes' },
   { to: '/meeting-notes', icon: Handshake, label: 'Meeting Notes' },
-  { to: '/conversations', icon: MessageSquare, label: 'All Conversations' },
-  { to: '/tasks', icon: CheckSquare, label: 'Tasks & Reminders' },
+  { to: '/conversations', icon: MessageSquare, label: 'Memory Archive' },
+  { to: '/tasks', icon: CheckSquare, label: 'Action Items' },
   { to: '/ideas', icon: Lightbulb, label: 'Ideas Vault' },
-  { to: '/people', icon: Users, label: 'People & Contacts' },
+  { to: '/people', icon: Users, label: 'My People' },
   { to: '/health', icon: Heart, label: 'Health Log' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping List' },
 ];
@@ -76,7 +76,7 @@ export function AppSidebar() {
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span>{item.label}</span>
-              {item.label === "Today's Text" && isRecording && (
+              {item.label === 'Daily Capture' && isRecording && (
                 <span className="ml-auto h-2 w-2 rounded-full bg-recording-red animate-pulse-recording" />
               )}
             </NavLink>
@@ -125,15 +125,7 @@ export function AppSidebar() {
         </div>
       </motion.aside>
 
-      {/* Toggle button when closed */}
-      {!sidebarOpen && (
-        <button
-          onClick={toggleSidebar}
-          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-primary/10 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      )}
+      {/* Toggle button hidden — TopNavbar handles hamburger */}
     </>
   );
 }

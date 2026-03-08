@@ -13,10 +13,10 @@ function timeAgo(dateStr: string) {
 }
 
 const sectionMap: Record<string, { label: string; path: string }> = {
-  academic: { label: 'Academic Notes', path: '/academic-notes' },
+  academic: { label: 'Study Notes', path: '/academic-notes' },
   meeting: { label: 'Meeting Notes', path: '/meeting-notes' },
-  personal: { label: "Today's Text", path: '/todays-text' },
-  mixed: { label: "Today's Text", path: '/todays-text' },
+  personal: { label: 'Daily Capture', path: '/todays-text' },
+  mixed: { label: 'Daily Capture', path: '/todays-text' },
 };
 
 const typeColors: Record<string, string> = {
@@ -63,7 +63,7 @@ export function ConversationCard({ conv, onCardClick }: { conv: Conversation; on
 
       {conv.linkedSection && (
         <p className="text-xs text-primary mt-1">
-          📚 Saved to {conv.linkedSection === 'academic_notes' ? 'Academic Notes' : 'Meeting Notes'} →
+          📚 Saved to {conv.linkedSection === 'academic_notes' ? 'Study Notes' : 'Meeting Notes'} →
         </p>
       )}
     </button>

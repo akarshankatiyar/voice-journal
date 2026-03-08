@@ -3,6 +3,7 @@ import { Bell, Crown, Menu } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAppStore } from '@/store/useAppStore';
 import { useConversationStore } from '@/store/useConversationStore';
+import { format } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 export function TopNavbar() {
-  const { toggleSidebar } = useAppStore();
+  const { sidebarOpen, toggleSidebar } = useAppStore();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -42,10 +43,25 @@ export function TopNavbar() {
 
   return (
     <>
-      <div className="flex items-center justify-end mb-6">
+      <div className="flex items-center justify-between mb-6">
+        {/* Left — Hamburger */}
+        {!sidebarOpen && (
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        {sidebarOpen && <div />}
 
+        {/* Center — Date */}
+        <p className="text-sm font-body text-muted-foreground tracking-wide hidden sm:block">
+          {format(new Date(), 'EEEE, MMMM d')}
+        </p>
+
+        {/* Right — Actions */}
         <div className="flex items-center gap-2">
-          {/* Bell — Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors">
@@ -69,7 +85,6 @@ export function TopNavbar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Crown — Premium */}
           <button
             onClick={() => setPremiumOpen(true)}
             className="p-2 rounded-lg text-gold hover:text-gold-light hover:bg-card transition-colors"
@@ -77,7 +92,6 @@ export function TopNavbar() {
             <Crown className="h-5 w-5" />
           </button>
 
-          {/* Profile Avatar */}
           <button
             onClick={() => setProfileOpen(true)}
             className="rounded-full"
@@ -88,6 +102,11 @@ export function TopNavbar() {
           </button>
         </div>
       </div>
+
+      {/* Date on mobile */}
+      <p className="text-center text-sm font-body text-muted-foreground tracking-wide sm:hidden -mt-4 mb-4">
+        {format(new Date(), 'EEEE, MMMM d')}
+      </p>
 
       {/* Premium Modal */}
       <Dialog open={premiumOpen} onOpenChange={setPremiumOpen}>
