@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, GraduationCap } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,8 @@ export function YouTubeImportDialog() {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [stage, setStage] = useState<Stage>('idle');
-  const { addConversation, addAcademicNote, addMeetingNote } = useConversationStore();
+  const [showAcademicBanner, setShowAcademicBanner] = useState(false);
+  const { addConversation, addAcademicNote } = useConversationStore();
 
   const handleSubmit = async () => {
     if (!url.trim()) return;
@@ -38,7 +39,6 @@ export function YouTubeImportDialog() {
 
       const now = new Date().toISOString();
       const convId = `yt_${Date.now()}`;
-      const type = data.type || 'academic';
 
       addConversation({
         id: convId,
@@ -46,11 +46,11 @@ export function YouTubeImportDialog() {
         title: data.title || 'YouTube Video Notes',
         fullTranscript: data.transcript || '',
         summary: data.summary || '',
-        type,
+        type: 'academic',
         subTypes: [],
         peopleMentioned: [],
         tags: ['youtube'],
-        linkedSection: type === 'academic' ? 'academic_notes' : type === 'meeting' ? 'meeting_notes' : null,
+        linkedSection: 'youtube_notes',
         images: [],
         isLive: false,
         startedAt: now,
@@ -60,36 +60,25 @@ export function YouTubeImportDialog() {
 
       const notes = resolveNotes(data.notes, data.title, data.summary);
 
-      if (type === 'academic') {
-        addAcademicNote({
-          id: `an_${Date.now()}`,
-          conversationId: convId,
-          title: notes.title,
-          subject: notes.subject,
-          structuredNotes: notes.structured_notes,
-          keyConcepts: notes.key_concepts,
-          summary: notes.summary,
-          createdAt: now,
-          source: 'youtube',
-          videoId: data.videoId,
-        });
-      } else if (type === 'meeting') {
-        addMeetingNote({
-          id: `mn_${Date.now()}`,
-          conversationId: convId,
-          title: notes.title,
-          attendees: notes.attendees || [],
-          agenda: notes.agenda || '',
-          actionItems: (notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
-          decisions: notes.decisions || [],
-          structuredNotes: notes.structured_notes,
-          summary: notes.summary,
-          createdAt: now,
-        });
+      addAcademicNote({
+        id: `an_${Date.now()}`,
+        conversationId: convId,
+        title: notes.title,
+        subject: notes.subject,
+        structuredNotes: notes.structured_notes,
+        keyConcepts: notes.key_concepts,
+        summary: notes.summary,
+        createdAt: now,
+        source: 'youtube',
+        videoId: data.videoId,
+      });
+
+      if (data.isAcademic && data.academicConfidence > 70) {
+        setShowAcademicBanner(true);
       }
 
       setStage('done');
-      toast.success('✅ Notes generated successfully!');
+      toast.success('✅ Notes saved to YouTube Notes!');
     } catch (err: any) {
       console.error('YouTube notes error:', err);
       toast.error(err.message || 'Failed to generate notes from YouTube video');
@@ -101,6 +90,7 @@ export function YouTubeImportDialog() {
     setOpen(false);
     setUrl('');
     setStage('idle');
+    setShowAcademicBanner(false);
   };
 
   return (
@@ -163,8 +153,37 @@ export function YouTubeImportDialog() {
                 <CheckCircle className="h-12 w-12 text-emerald-500" />
               </motion.div>
               <p className="text-sm text-foreground text-center">
-                ✅ Notes generated successfully!
+                ✅ Notes saved to YouTube Notes!
               </p>
+
+              {showAcademicBanner && (
+                <div className="w-full bg-vc-blue/10 border border-vc-blue/20 rounded-lg p-3 text-center space-y-2">
+                  <p className="text-sm text-foreground">
+                    🎓 This looks like an academic video. Save to Academic Notes too?
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setShowAcademicBanner(false);
+                        toast.success('Already in Academic Notes!');
+                      }}
+                      className="text-xs"
+                    >
+                      <GraduationCap className="h-3 w-3 mr-1" /> Yes, Move it
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAcademicBanner(false)}
+                      className="text-xs"
+                    >
+                      Keep in YouTube Notes
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <Button variant="ghost" onClick={handleClose} className="text-sm">
                 Close
               </Button>
