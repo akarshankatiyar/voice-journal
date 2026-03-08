@@ -103,7 +103,7 @@ export default function Home() {
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-5 overflow-x-hidden w-full min-w-0">
       <TopNavbar />
 
       {/* Live transcript */}
