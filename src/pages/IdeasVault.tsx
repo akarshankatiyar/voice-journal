@@ -11,19 +11,27 @@ const categories = ['all', 'startup', 'personal', 'creative'];
 
 export default function IdeasVault() {
   const [filter, setFilter] = useState('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const ideas = useConversationStore((s) => s.ideas);
   const filtered = filter === 'all' ? ideas : ideas.filter(i => i.category === filter);
+  const detail = ideas.find(i => i.id === selectedId);
 
-  const handleEdit = (idea: any) => {
-    setEditData({ ...idea });
-    setEditingId(idea.id);
+  const handleOpenDetail = (idea: any) => {
+    setSelectedId(idea.id);
+    setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    if (detail) {
+      setEditData({ ...detail });
+      setIsEditing(true);
+    }
   };
 
   const handleSave = () => {
-    // In a real app, this would update the data in your backend/store
-    setEditingId(null);
+    setIsEditing(false);
     setEditData(null);
   };
 
@@ -53,30 +61,65 @@ export default function IdeasVault() {
       ) : (
         <div className="columns-1 sm:columns-2 gap-4 space-y-4">
           {filtered.map(idea => (
-            <motion.div key={idea.id} variants={item} className="glass-card-hover p-4 break-inside-avoid group relative">
-              <button
-                onClick={() => handleEdit(idea)}
-                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-all"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
+            <motion.button
+              key={idea.id}
+              variants={item}
+              onClick={() => handleOpenDetail(idea)}
+              className="w-full text-left glass-card-hover p-4 break-inside-avoid transition-all hover:scale-[1.01]"
+            >
               <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 capitalize">{idea.category}</span>
               <p className="text-sm text-foreground mt-2">{idea.ideaText}</p>
               <p className="text-xs text-muted-foreground mt-2">{new Date(idea.createdAt).toLocaleDateString()}</p>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Detail Modal */}
       <AnimatePresence>
-        {editingId && editData && (
+        {detail && !isEditing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={() => setEditingId(null)}
+            onClick={() => setSelectedId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="glass-card max-w-md w-full p-6"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <h2 className="font-display text-lg text-foreground">Idea Details</h2>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleEdit} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors">
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 capitalize">{detail.category}</span>
+              <p className="text-sm text-foreground mt-3">{detail.ideaText}</p>
+              <p className="text-xs text-muted-foreground mt-3">{new Date(detail.createdAt).toLocaleDateString()}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {detail && isEditing && editData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setIsEditing(false)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -87,7 +130,7 @@ export default function IdeasVault() {
             >
               <div className="flex items-start justify-between mb-4">
                 <h2 className="font-display text-lg text-foreground">Edit Idea</h2>
-                <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -115,7 +158,7 @@ export default function IdeasVault() {
                 </div>
                 <div className="flex gap-2 justify-end pt-4 border-t border-primary/10">
                   <button
-                    onClick={() => setEditingId(null)}
+                    onClick={() => setIsEditing(false)}
                     className="flex items-center gap-1 text-sm px-3 py-2 rounded border border-muted text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
                   >
                     <X className="h-4 w-4" />

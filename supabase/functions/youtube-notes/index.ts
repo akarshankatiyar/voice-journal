@@ -18,96 +18,80 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Method 1: Try fetching via timedtext API directly (works for auto-captions)
-  const langs = ["en", "en-US", "en-GB", ""];
-  for (const lang of langs) {
-    try {
-      const ttUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
-      const res = await fetch(ttUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-      });
-      if (res.ok) {
-        const xml = await res.text();
-        const text = extractTextFromXml(xml);
-        if (text.length > 50) return text;
-      } else {
-        await res.text(); // consume body
-      }
-    } catch { /* try next */ }
-  }
-
-  // Method 2: Scrape the watch page for caption track URLs
-  const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const pageRes = await fetch(pageUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept": "text/html,application/xhtml+xml",
-    },
-  });
-  const html = await pageRes.text();
-
-  // Extract captionTracks from ytInitialPlayerResponse
-  const tracksMatch = html.match(/"captionTracks"\s*:\s*(\[.*?\])/s);
-  if (tracksMatch) {
-    try {
-      const tracks = JSON.parse(tracksMatch[1]);
-      if (tracks.length > 0) {
-        // Prefer English
-        const enTrack = tracks.find((t: any) => t.languageCode?.startsWith("en")) || tracks[0];
-        let captionUrl = enTrack.baseUrl;
-        // Ensure we get srv3 format
-        if (!captionUrl.includes("fmt=")) captionUrl += "&fmt=srv3";
-        const capRes = await fetch(captionUrl);
-        const xml = await capRes.text();
-        const text = extractTextFromXml(xml);
-        if (text.length > 50) return text;
-      }
-    } catch { /* fall through */ }
-  }
-
-  // Method 3: Try auto-generated captions via asr_langs
-  const asrMatch = html.match(/"defaultAudioTrackIndex"\s*:\s*\d+|"captionTracks"\s*:/);
-  if (!asrMatch) {
-    // Try fetching with asr (auto-generated) param
-    try {
-      const ttUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&kind=asr&fmt=srv3`;
-      const res = await fetch(ttUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-      });
-      if (res.ok) {
-        const xml = await res.text();
-        const text = extractTextFromXml(xml);
-        if (text.length > 50) return text;
-      } else {
-        await res.text();
-      }
-    } catch { /* fall through */ }
-  }
-
-  throw new Error("No captions available for this video. Please try a video with subtitles/CC enabled.");
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\\n/g, " ")
+    .replace(/\n/g, " ");
 }
 
 function extractTextFromXml(xml: string): string {
   const textParts: string[] = [];
-  // Handle both <text> and <p> tags (different XML formats)
-  const regex = /<(?:text|p)[^>]*>(.*?)<\/(?:text|p)>/gs;
+  const regex = /<(?:text|p)[^>]*>([\s\S]*?)<\/(?:text|p)>/g;
   let match;
   while ((match = regex.exec(xml)) !== null) {
-    let text = match[1]
-      .replace(/<[^>]+>/g, "") // strip nested tags
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, " ")
-      .replace(/\n/g, " ")
-      .trim();
+    const text = decodeHtmlEntities(match[1].replace(/<[^>]+>/g, "")).trim();
     if (text) textParts.push(text);
   }
   return textParts.join(" ");
+}
+
+async function fetchTranscriptFromPage(videoId: string): Promise<string> {
+  const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  };
+
+  const pageRes = await fetch(pageUrl, { headers });
+  if (!pageRes.ok) throw new Error(`Failed to fetch YouTube page: ${pageRes.status}`);
+  const html = await pageRes.text();
+
+  // Extract captions from ytInitialPlayerResponse
+  const playerRespMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+  if (!playerRespMatch) {
+    throw new Error("Could not find player response in page");
+  }
+
+  let playerResp: any;
+  try {
+    playerResp = JSON.parse(playerRespMatch[1]);
+  } catch {
+    throw new Error("Failed to parse player response");
+  }
+
+  const captions = playerResp?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  if (!captions || captions.length === 0) {
+    throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
+  }
+
+  // Prefer English, fallback to first available
+  const enTrack = captions.find((t: any) => t.languageCode?.startsWith("en")) || captions[0];
+  let captionUrl = enTrack.baseUrl;
+
+  // Ensure srv3 format for XML parsing
+  if (captionUrl.includes("fmt=")) {
+    captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
+  } else {
+    captionUrl += "&fmt=srv3";
+  }
+
+  const capRes = await fetch(captionUrl, { headers });
+  if (!capRes.ok) throw new Error(`Failed to fetch caption track: ${capRes.status}`);
+  const xml = await capRes.text();
+  const text = extractTextFromXml(xml);
+
+  if (text.length < 50) {
+    throw new Error("Transcript too short or empty");
+  }
+
+  return text;
 }
 
 async function getVideoTitle(videoId: string): Promise<string> {
@@ -135,16 +119,14 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Processing video: ${videoId}`);
+
     const [transcript, videoTitle] = await Promise.all([
-      fetchYouTubeTranscript(videoId),
+      fetchTranscriptFromPage(videoId),
       getVideoTitle(videoId),
     ]);
 
-    if (transcript.length < 50) {
-      return new Response(JSON.stringify({ error: "Transcript too short to generate notes" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    console.log(`Got transcript (${transcript.length} chars) for: ${videoTitle}`);
 
     // Classify content
     const classifyRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -168,8 +150,8 @@ serve(async (req) => {
 
     // Generate structured notes
     const notesPrompt = type === "meeting"
-      ? `Convert this YouTube video transcript into structured meeting notes. Return ONLY valid JSON.\n\nTranscript: "${transcript}"\n\nReturn:\n{"title": "${videoTitle}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
-      : `Convert this YouTube video transcript into structured academic notes. Return ONLY valid JSON.\n\nTranscript: "${transcript}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${videoTitle}", "structured_notes": "Full formatted notes in markdown with ## headings, bullet points, **bold** terms", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
+      ? `Convert this YouTube video transcript into structured meeting notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"title": "${videoTitle}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
+      : `Convert this YouTube video transcript into structured academic notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${videoTitle}", "structured_notes": "Full formatted notes in markdown with ## headings, bullet points, **bold** terms", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
 
     const notesRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
