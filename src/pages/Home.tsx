@@ -10,6 +10,8 @@ import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
 import { MessageSquare, ArrowRight, Sparkles, RefreshCw, Mic, GraduationCap, Users, CheckSquare, Lightbulb } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ConversationDetailModal } from '@/components/shared/ConversationDetailModal';
+import type { Conversation } from '@/data/mockData';
 
 const container = {
   hidden: { opacity: 0 },
@@ -48,6 +50,7 @@ export default function Home() {
 
   const [summaryText, setSummaryText] = useState<string>('');
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
 
   const loadDailySummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -154,10 +157,12 @@ export default function Home() {
         </div>
         <div className="space-y-3">
           {conversations.slice(0, 3).map(conv => (
-            <ConversationCard key={conv.id} conv={conv} />
+            <ConversationCard key={conv.id} conv={conv} onCardClick={setSelectedConv} />
           ))}
         </div>
       </motion.div>
+
+      <ConversationDetailModal conversation={selectedConv} open={!!selectedConv} onOpenChange={(o) => !o && setSelectedConv(null)} />
     </motion.div>
   );
 }

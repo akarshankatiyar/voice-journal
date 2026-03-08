@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { CalendarIcon, Clock, Users as UsersIcon, X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { TagBadge } from '@/components/shared/TagBadge';
+import { ConversationDetailModal } from '@/components/shared/ConversationDetailModal';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -164,17 +166,17 @@ export default function AllConversations() {
                   )}
                 </div>
 
-                {selectedConv.summary && (
+              {selectedConv.summary && (
                   <div>
                     <h4 className="text-xs font-body font-medium text-primary uppercase tracking-wider mb-2">Summary</h4>
-                    <p className="text-sm text-foreground/80">{selectedConv.summary}</p>
+                    <MarkdownRenderer content={selectedConv.summary} showToc={false} />
                   </div>
                 )}
 
                 {selectedConv.fullTranscript && (
                   <div>
                     <h4 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">Transcript</h4>
-                    <p className="text-sm text-foreground/70 whitespace-pre-wrap">{selectedConv.fullTranscript}</p>
+                    <MarkdownRenderer content={selectedConv.fullTranscript} />
                   </div>
                 )}
 
