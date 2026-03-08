@@ -149,7 +149,7 @@ export default function Home() {
       <YouTubeImportDialog open={youtubeOpen} onOpenChange={setYoutubeOpen} />
 
       {/* Status Card */}
-      <motion.div variants={item} className="glass-card p-5">
+      <motion.div variants={item} className="glass-card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
