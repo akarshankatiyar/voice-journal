@@ -34,6 +34,7 @@ interface Props {
 export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: Props) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [language, setLanguage] = useState<'english' | 'hindi' | 'hinglish'>(detail?.language || 'english');
 
   const handleShareLink = async () => {
     if (!detail) return;
