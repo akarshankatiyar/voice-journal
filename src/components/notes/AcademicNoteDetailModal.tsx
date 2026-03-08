@@ -136,7 +136,7 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
       </AnimatePresence>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[70]">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this note?</AlertDialogTitle>
             <AlertDialogDescription>
