@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useConversationStore } from '@/store/useConversationStore';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { resolveNotes } from '@/utils/parseNotes';
 
 type Stage = 'idle' | 'fetching' | 'generating' | 'done';
 
@@ -57,35 +58,17 @@ export function YouTubeImportDialog() {
         createdAt: now,
       });
 
-      // Handle parse_error: extract usable content from raw
-      let notes = data.notes || {};
-      if (notes.parse_error && notes.raw) {
-        try {
-          const codeBlock = notes.raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (codeBlock) {
-            notes = JSON.parse(codeBlock[1].trim());
-          } else {
-            const jsonMatch = notes.raw.match(/\{[\s\S]*"structured_notes"\s*:[\s\S]*\}/);
-            if (jsonMatch) {
-              notes = JSON.parse(jsonMatch[0]);
-            } else {
-              notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
-            }
-          }
-        } catch {
-          notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
-        }
-      }
+      const notes = resolveNotes(data.notes, data.title, data.summary);
 
       if (type === 'academic') {
         addAcademicNote({
           id: `an_${Date.now()}`,
           conversationId: convId,
-          title: notes.title || data.title || 'YouTube Lecture',
-          subject: notes.subject || 'General',
-          structuredNotes: notes.structured_notes || '',
-          keyConcepts: notes.key_concepts || [],
-          summary: notes.summary || data.summary || '',
+          title: notes.title,
+          subject: notes.subject,
+          structuredNotes: notes.structured_notes,
+          keyConcepts: notes.key_concepts,
+          summary: notes.summary,
           createdAt: now,
           source: 'youtube',
           videoId: data.videoId,
@@ -94,13 +77,13 @@ export function YouTubeImportDialog() {
         addMeetingNote({
           id: `mn_${Date.now()}`,
           conversationId: convId,
-          title: notes.title || data.title || 'YouTube Meeting',
+          title: notes.title,
           attendees: notes.attendees || [],
           agenda: notes.agenda || '',
           actionItems: (notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
           decisions: notes.decisions || [],
-          structuredNotes: notes.structured_notes || '',
-          summary: notes.summary || data.summary || '',
+          structuredNotes: notes.structured_notes,
+          summary: notes.summary,
           createdAt: now,
         });
       }
@@ -127,14 +110,16 @@ export function YouTubeImportDialog() {
         variant="outline"
         className="flex items-center gap-2 border-destructive/30 text-destructive hover:bg-destructive/10"
       >
-        <img src="/images/youtube-icon.svg" alt="YouTube" className="h-4 w-4" /> Import from YouTube
+        <img src="/images/youtube-icon.svg" alt="YouTube" className="h-4 w-4" />
+        Import from YouTube
       </Button>
 
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5" /> Import from YouTube
+              <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5" />
+              Import from YouTube
             </DialogTitle>
           </DialogHeader>
 
@@ -178,7 +163,7 @@ export function YouTubeImportDialog() {
                 <CheckCircle className="h-12 w-12 text-emerald-500" />
               </motion.div>
               <p className="text-sm text-foreground text-center">
-                ✅ Notes saved to <strong>Academic Notes</strong>
+                ✅ Notes generated successfully!
               </p>
               <Button variant="ghost" onClick={handleClose} className="text-sm">
                 Close
