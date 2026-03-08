@@ -166,17 +166,17 @@ export default function AllConversations() {
                   )}
                 </div>
 
-                {selectedConv.summary && (
+              {selectedConv.summary && (
                   <div>
                     <h4 className="text-xs font-body font-medium text-primary uppercase tracking-wider mb-2">Summary</h4>
-                    <p className="text-sm text-foreground/80">{selectedConv.summary}</p>
+                    <MarkdownRenderer content={selectedConv.summary} showToc={false} />
                   </div>
                 )}
 
                 {selectedConv.fullTranscript && (
                   <div>
                     <h4 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">Transcript</h4>
-                    <p className="text-sm text-foreground/70 whitespace-pre-wrap">{selectedConv.fullTranscript}</p>
+                    <MarkdownRenderer content={selectedConv.fullTranscript} />
                   </div>
                 )}
 

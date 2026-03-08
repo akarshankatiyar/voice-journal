@@ -26,12 +26,16 @@ const typeColors: Record<string, string> = {
   mixed: 'text-muted-foreground',
 };
 
-export function ConversationCard({ conv }: { conv: Conversation }) {
+export function ConversationCard({ conv, onCardClick }: { conv: Conversation; onCardClick?: (conv: Conversation) => void }) {
   const navigate = useNavigate();
   const section = sectionMap[conv.type] || sectionMap.personal;
 
   const handleClick = () => {
-    navigate(section.path);
+    if (onCardClick) {
+      onCardClick(conv);
+    } else {
+      navigate(section.path);
+    }
   };
 
   return (

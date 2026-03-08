@@ -162,5 +162,8 @@ export default function Home() {
         </div>
       </motion.div>
     </motion.div>
+
+      <ConversationDetailModal conversation={selectedConv} open={!!selectedConv} onOpenChange={(o) => !o && setSelectedConv(null)} />
+    </motion.div>
   );
 }
