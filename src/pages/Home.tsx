@@ -157,7 +157,7 @@ export default function Home() {
         </div>
         <div className="space-y-3">
           {conversations.slice(0, 3).map(conv => (
-            <ConversationCard key={conv.id} conv={conv} />
+            <ConversationCard key={conv.id} conv={conv} onCardClick={setSelectedConv} />
           ))}
         </div>
       </motion.div>
