@@ -2,8 +2,25 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
+import { Handshake, Users, CheckCircle, X, Edit2, Save, Share2, Trash2, Copy, MessageCircle, Mail } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
