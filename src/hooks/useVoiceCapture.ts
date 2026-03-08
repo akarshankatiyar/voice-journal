@@ -14,8 +14,6 @@ export function useVoiceCapture() {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
   const wantActiveRef = useRef(false);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const isRestartingRef = useRef(false);
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -29,9 +27,9 @@ export function useVoiceCapture() {
     }, SILENCE_TIMEOUT_MS);
   }, []);
 
-  const buildRecognition = useCallback(() => {
+  const buildAndStart = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
+    if (!SpeechRecognition || !wantActiveRef.current) return;
 
     const rec = new SpeechRecognition();
     rec.continuous = true;
@@ -55,77 +53,46 @@ export function useVoiceCapture() {
     };
 
     rec.onerror = (event: any) => {
-      // 'aborted' is expected when we manually stop; 'no-speech' is normal silence
       if (event.error === 'aborted' || event.error === 'no-speech') return;
       console.warn('SpeechRecognition error:', event.error);
     };
 
     rec.onend = () => {
-      // Only auto-restart if we still want to be active and aren't already restarting
-      if (!wantActiveRef.current || isRestartingRef.current) return;
-      
-      isRestartingRef.current = true;
-      // Build a fresh instance and start it
-      const fresh = buildRecognition();
-      if (fresh) {
-        recognitionRef.current = fresh;
-        try {
-          fresh.start();
-        } catch {
-          // If start fails, try once more after a tick
-          setTimeout(() => {
-            if (wantActiveRef.current) {
-              try { fresh.start(); } catch {}
-            }
-            isRestartingRef.current = false;
-          }, 100);
-          return;
-        }
+      // Immediately restart if we still want to be active
+      if (wantActiveRef.current) {
+        buildAndStart();
       }
-      isRestartingRef.current = false;
     };
 
-    return rec;
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+    } catch (e) {
+      console.warn('SpeechRecognition start failed:', e);
+    }
   }, [appendTranscript, setInterimText, resetSilenceTimer]);
 
-  const startRecording = useCallback(async (onAutoStop?: (transcript: string) => void) => {
+  // Synchronous — no await, no getUserMedia — stays in user gesture context
+  const startRecording = useCallback((onAutoStop?: (transcript: string) => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('Speech Recognition is not supported in this browser. Please use Chrome.');
       return;
     }
 
-    // Acquire mic permission directly in user gesture
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
-      mediaStreamRef.current = stream;
-    } catch (err) {
-      console.error('Mic permission denied:', err);
-      alert('Microphone permission is required.');
-      return;
-    }
-
     onAutoStopRef.current = onAutoStop || null;
     wantActiveRef.current = true;
-    isRestartingRef.current = false;
 
     clearTranscript();
     setRecording(true);
     resetSilenceTimer();
 
-    const rec = buildRecognition();
-    if (rec) {
-      recognitionRef.current = rec;
-      rec.start();
-    }
-  }, [clearTranscript, setRecording, resetSilenceTimer, buildRecognition]);
+    // Start immediately — synchronous, within gesture context
+    buildAndStart();
+  }, [clearTranscript, setRecording, resetSilenceTimer, buildAndStart]);
 
   const stopRecording = useCallback((): string => {
-    // Signal we no longer want to be active BEFORE aborting
     wantActiveRef.current = false;
-    isRestartingRef.current = false;
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -138,12 +105,6 @@ export function useVoiceCapture() {
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
-    }
-
-    // Release media stream
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(t => t.stop());
-      mediaStreamRef.current = null;
     }
 
     setInterimText('');
