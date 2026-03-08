@@ -9,6 +9,7 @@ interface SpeechRecognitionEvent {
 const SILENCE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 const RESTART_DELAY_MS = 100; // small delay to let browser release mic
 const NO_SPEECH_RESTART_DELAY_MS = 500; // longer delay when no speech detected
+const RESTART_GRACE_MS = 200; // ignore replayed results within this window after restart
 
 export function useVoiceCapture() {
   const { setRecording, appendTranscript, setInterimText, clearTranscript } = useAppStore();
