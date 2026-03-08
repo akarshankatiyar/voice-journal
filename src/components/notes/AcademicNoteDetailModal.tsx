@@ -94,7 +94,7 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
                         <Share2 className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="w-48 z-[70]">
                       <DropdownMenuItem onClick={() => handleShare('copy')} className="gap-2">
                         <Copy className="h-4 w-4" /> Copy to Clipboard
                       </DropdownMenuItem>
