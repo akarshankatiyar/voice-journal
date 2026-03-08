@@ -125,15 +125,7 @@ export function AppSidebar() {
         </div>
       </motion.aside>
 
-      {/* Toggle button when closed */}
-      {!sidebarOpen && (
-        <button
-          onClick={toggleSidebar}
-          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-primary/10 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      )}
+      {/* Toggle button hidden — TopNavbar handles hamburger */}
     </>
   );
 }
