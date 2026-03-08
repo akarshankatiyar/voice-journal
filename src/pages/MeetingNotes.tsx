@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
