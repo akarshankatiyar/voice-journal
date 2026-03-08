@@ -14,6 +14,9 @@ interface ConversationStore {
   addTasks: (tasks: Task[]) => void;
   addIdeas: (ideas: Idea[]) => void;
   toggleTask: (id: string) => void;
+  deleteAcademicNote: (id: string) => void;
+  deleteMeetingNote: (id: string) => void;
+  deleteConversation: (id: string) => void;
 }
 
 export const useConversationStore = create<ConversationStore>((set) => ({
