@@ -105,7 +105,7 @@ export default function IdeasVault() {
                 </div>
               </div>
               <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 capitalize">{detail.category}</span>
-              <p className="text-sm text-foreground mt-3">{detail.ideaText}</p>
+              <MarkdownRenderer content={detail.ideaText} showToc={false} className="mt-3" />
               <p className="text-xs text-muted-foreground mt-3">{new Date(detail.createdAt).toLocaleDateString()}</p>
             </motion.div>
           </motion.div>

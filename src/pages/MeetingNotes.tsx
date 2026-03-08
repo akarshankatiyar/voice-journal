@@ -60,7 +60,7 @@ export default function MeetingNotes() {
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" />{note.attendees.join(', ')}</span>
                 <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" />{note.actionItems.length} actions</span>
               </div>
-              <p className="text-sm text-muted-foreground">{note.summary}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{note.summary}</p>
             </motion.div>
           ))}
         </div>

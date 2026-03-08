@@ -149,9 +149,7 @@ export function MeetingNoteView({
       {/* Summary */}
       <div className="bg-gold/5 border-l-4 border-gold rounded-r-xl p-4">
         <p className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2">Summary</p>
-        <p className="text-sm font-body text-foreground/80" style={{ fontFamily: "'Dancing Script', cursive" }}>
-          {summary}
-        </p>
+        <MarkdownRenderer content={summary} showToc={false} />
       </div>
     </motion.div>
   );

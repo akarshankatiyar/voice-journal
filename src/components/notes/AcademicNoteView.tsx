@@ -103,9 +103,7 @@ export function AcademicNoteView({
       {/* Summary */}
       <div className="bg-vc-blue/5 border border-vc-blue/15 rounded-xl p-4">
         <p className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2">Summary</p>
-        <p className="text-sm font-body italic text-foreground/80" style={{ fontFamily: "'Dancing Script', cursive" }}>
-          {summary}
-        </p>
+        <MarkdownRenderer content={summary} showToc={false} />
       </div>
     </motion.div>
   );
