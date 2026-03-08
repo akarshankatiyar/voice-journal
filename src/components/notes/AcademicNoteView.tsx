@@ -97,43 +97,8 @@ export function AcademicNoteView({
         </div>
       )}
 
-      {/* Structured Notes Sections */}
-      {sections.map((section, i) => {
-        const lines = section.trim().split('\n');
-        const heading = lines[0]?.replace(/^#+\s*/, '') || '';
-        const content = lines.slice(1).join('\n').trim();
-        return (
-          <div key={i} className="space-y-2">
-            <h3 className="font-display text-lg text-vc-blue border-l-3 border-vc-blue/40 pl-3">
-              {heading}
-            </h3>
-            <div className="pl-4 space-y-1">
-              {content.split('\n').filter(Boolean).map((line, j) => {
-                const isBullet = line.trim().startsWith('-') || line.trim().startsWith('*');
-                const text = line.replace(/^[-*]\s*/, '');
-                // Bold text
-                const parts = text.split(/(\*\*[^*]+\*\*)/g);
-                return (
-                  <div key={j} className="flex items-start gap-2 text-sm font-body text-foreground/85">
-                    {isBullet && <span className="mt-1.5 h-2 w-2 rounded-full bg-vc-blue/60 shrink-0" />}
-                    <span>
-                      {parts.map((p, k) =>
-                        p.startsWith('**') && p.endsWith('**') ? (
-                          <strong key={k} className="text-foreground font-semibold underline decoration-vc-blue/30">
-                            {p.slice(2, -2)}
-                          </strong>
-                        ) : (
-                          <span key={k}>{p}</span>
-                        )
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+      {/* Structured Notes - Full Markdown */}
+      <MarkdownRenderer content={structuredNotes} showToc={false} />
 
       {/* Summary */}
       <div className="bg-vc-blue/5 border border-vc-blue/15 rounded-xl p-4">
