@@ -191,7 +191,7 @@ export default function Home() {
       </motion.div>
 
       {/* Today's Brief — Premium diary style */}
-      <motion.div variants={item} className="rounded-xl p-5 relative overflow-hidden" style={{ background: '#0D1B2A' }}>
+      <motion.div variants={item} className="rounded-xl p-4 sm:p-5 relative overflow-hidden" style={{ background: '#0D1B2A' }}>
         <Quote className="absolute top-3 left-4 h-8 w-8 text-[hsl(var(--gold))] opacity-30" />
         <div className="flex items-center justify-between mb-3 relative z-10">
           <div className="flex items-center gap-2">
