@@ -14,6 +14,11 @@ import IdeasVault from "./pages/IdeasVault";
 import PeopleContacts from "./pages/PeopleContacts";
 import HealthLog from "./pages/HealthLog";
 import ShoppingList from "./pages/ShoppingList";
+import YouTubeNotes from "./pages/YouTubeNotes";
+import Auth from "./pages/Auth";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import SharedNote from "./pages/SharedNote";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,10 +30,16 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public routes */}
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/shared/:token" element={<SharedNote />} />
+          
+          {/* App routes */}
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/todays-text" element={<TodaysText />} />
             <Route path="/academic-notes" element={<AcademicNotes />} />
+            <Route path="/youtube-notes" element={<YouTubeNotes />} />
             <Route path="/meeting-notes" element={<MeetingNotes />} />
             <Route path="/conversations" element={<AllConversations />} />
             <Route path="/tasks" element={<TasksReminders />} />
@@ -36,6 +47,8 @@ const App = () => (
             <Route path="/people" element={<PeopleContacts />} />
             <Route path="/health" element={<HealthLog />} />
             <Route path="/shopping" element={<ShoppingList />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

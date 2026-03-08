@@ -3,13 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store/useAppStore';
 import {
   Home, Calendar, GraduationCap, Handshake, MessageSquare,
-  CheckSquare, Lightbulb, Users, Heart, ShoppingCart, Settings, User, Mic, X, Menu
+  CheckSquare, Lightbulb, Users, Heart, ShoppingCart, Settings, User, Mic, X, Menu, Monitor, LogIn
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/todays-text', icon: Calendar, label: "Today's Text" },
   { to: '/academic-notes', icon: GraduationCap, label: 'Academic Notes' },
+  { to: '/youtube-notes', icon: Monitor, label: '📺 YouTube Notes' },
   { to: '/meeting-notes', icon: Handshake, label: 'Meeting Notes' },
   { to: '/conversations', icon: MessageSquare, label: 'All Conversations' },
   { to: '/tasks', icon: CheckSquare, label: 'Tasks & Reminders' },
@@ -21,6 +23,7 @@ const navItems = [
 
 export function AppSidebar() {
   const { sidebarOpen, toggleSidebar, isRecording } = useAppStore();
+  const { user, profile } = useAuth();
 
   return (
     <>
@@ -48,7 +51,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-between px-5 h-16 border-b border-primary/10">
           <div className="flex items-center gap-2">
             <Mic className="h-5 w-5 text-primary" />
-            <span className="font-display text-lg text-primary font-semibold tracking-wide">VoiceCollar</span>
+            <span className="font-display text-lg text-primary font-semibold tracking-wide">EchoMind</span>
           </div>
           <button onClick={toggleSidebar} className="lg:hidden text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -82,14 +85,43 @@ export function AppSidebar() {
 
         {/* Bottom */}
         <div className="border-t border-primary/10 p-3 space-y-1">
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent w-full transition-colors">
-            <Settings className="h-4 w-4" />
-            <span>Settings</span>
-          </button>
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent w-full transition-colors">
-            <User className="h-4 w-4" />
-            <span>Profile</span>
-          </button>
+          {user ? (
+            <>
+              <NavLink
+                to="/settings"
+                onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body transition-colors w-full ${
+                    isActive ? 'bg-primary/10 text-primary font-medium' : 'text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent'
+                  }`
+                }
+              >
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </NavLink>
+              <NavLink
+                to="/profile"
+                onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body transition-colors w-full ${
+                    isActive ? 'bg-primary/10 text-primary font-medium' : 'text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent'
+                  }`
+                }
+              >
+                <User className="h-4 w-4" />
+                <span>{profile?.display_name || 'Profile'}</span>
+              </NavLink>
+            </>
+          ) : (
+            <NavLink
+              to="/auth"
+              onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-primary hover:bg-primary/10 w-full transition-colors"
+            >
+              <LogIn className="h-4 w-4" />
+              <span>Sign In</span>
+            </NavLink>
+          )}
         </div>
       </motion.aside>
 

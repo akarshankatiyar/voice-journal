@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit2, Share2, Trash2, Copy, MessageCircle, Mail, Link as LinkIcon } from 'lucide-react';
+import { X, Edit2, Share2, Trash2, Copy, MessageCircle, Mail, Link as LinkIcon, Loader2 } from 'lucide-react';
 import type { AcademicNote } from '@/data/mockData';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,44 @@ interface Props {
 
 export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: Props) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const handleShareLink = async () => {
+    if (!detail) return;
+    setSharing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast.error('Please sign in to share notes via link');
+        setSharing(false);
+        return;
+      }
+
+      const { data, error } = await supabase.from('shared_notes').insert({
+        note_type: detail.source === 'youtube' ? 'youtube' : 'academic',
+        note_data: {
+          title: detail.title,
+          subject: detail.subject,
+          structuredNotes: detail.structuredNotes,
+          keyConcepts: detail.keyConcepts,
+          summary: detail.summary,
+          source: detail.source,
+        },
+        title: detail.title,
+        created_by: sessionData.session.user.id,
+      }).select('share_token').single();
+
+      if (error) throw error;
+
+      const shareUrl = `${window.location.origin}/shared/${data.share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Share link copied to clipboard!');
+    } catch (err: any) {
+      console.error('Share error:', err);
+      toast.error('Failed to create share link');
+    }
+    setSharing(false);
+  };
 
   const handleShare = (method: string) => {
     if (!detail) return;
@@ -97,6 +136,10 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 z-[70]">
+                      <DropdownMenuItem onClick={handleShareLink} className="gap-2" disabled={sharing}>
+                        {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <LinkIcon className="h-4 w-4" />}
+                        Share Link
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleShare('copy')} className="gap-2">
                         <Copy className="h-4 w-4" /> Copy to Clipboard
                       </DropdownMenuItem>
