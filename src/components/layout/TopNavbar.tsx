@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { Bell, Crown, Menu, Mic } from 'lucide-react';
+import { Bell, Crown, Menu } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAppStore } from '@/store/useAppStore';
 import { useConversationStore } from '@/store/useConversationStore';
-import { useVoiceCapture } from '@/hooks/useVoiceCapture';
-import { useAutoProcess } from '@/hooks/useAutoProcess';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 export function TopNavbar() {
-  const { toggleSidebar, isRecording } = useAppStore();
-  const { startRecording, stopRecording } = useVoiceCapture();
-  const { processAndSave } = useAutoProcess();
+  const { toggleSidebar } = useAppStore();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -43,19 +39,6 @@ export function TopNavbar() {
       ? [{ id: 'tasks', text: `⚡ ${pendingTasks} pending tasks to review`, time: 'now' }]
       : []),
   ];
-
-  const handleRecordClick = () => {
-    if (isRecording) {
-      const transcript = stopRecording();
-      if (transcript && transcript.length > 10) {
-        processAndSave(transcript);
-      }
-    } else {
-      startRecording((transcript) => {
-        processAndSave(transcript);
-      });
-    }
-  };
 
   return (
     <>
@@ -108,21 +91,6 @@ export function TopNavbar() {
             <Avatar className="h-8 w-8 border border-primary/20">
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-display">U</AvatarFallback>
             </Avatar>
-          </button>
-
-          {/* Record Button */}
-          <button
-            onClick={handleRecordClick}
-            className={`relative p-2 rounded-full transition-all ${
-              isRecording
-                ? 'bg-destructive/20 text-destructive'
-                : 'bg-destructive/10 text-destructive hover:bg-destructive/20'
-            }`}
-          >
-            <Mic className="h-4 w-4" />
-            {isRecording && (
-              <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive animate-pulse" />
-            )}
           </button>
         </div>
       </div>
