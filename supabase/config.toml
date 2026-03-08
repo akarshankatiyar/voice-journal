@@ -2,3 +2,6 @@ project_id = "ygwiaxnbezeyqaljmybt"
 
 [functions.process-transcript]
 verify_jwt = false
+
+[functions.youtube-notes]
+verify_jwt = false

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { MicButton } from '@/components/recording/MicButton';
 import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
+import { TopNavbar } from '@/components/layout/TopNavbar';
+import { YouTubeNotesButton } from '@/components/youtube/YouTubeNotesButton';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
@@ -76,6 +78,9 @@ export default function Home() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      {/* Top Navbar */}
+      <TopNavbar />
+
       {/* Component 1 — Live Status Card */}
       <motion.div variants={item} className="glass-card p-5">
         <div className="flex items-center gap-2 mb-4">
@@ -150,6 +155,11 @@ export default function Home() {
             </div>
           </div>
         </button>
+      </motion.div>
+
+      {/* YouTube Notes Button */}
+      <motion.div variants={item}>
+        <YouTubeNotesButton />
       </motion.div>
 
       {/* Manual Record Button (secondary) */}
