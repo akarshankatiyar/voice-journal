@@ -107,6 +107,10 @@ export default function AcademicNotes() {
         detail={detail && !isEditing ? detail : null}
         onClose={() => setSelectedNote(null)}
         onEdit={handleEdit}
+        onDelete={(id) => {
+          deleteAcademicNote(id);
+          setSelectedNote(null);
+        }}
       />
 
       <AcademicNoteEditModal
