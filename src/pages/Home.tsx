@@ -50,6 +50,7 @@ export default function Home() {
 
   const [summaryText, setSummaryText] = useState<string>('');
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
 
   const loadDailySummary = useCallback(async () => {
     setSummaryLoading(true);
