@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { MicButton } from '@/components/recording/MicButton';
 import { LiveTranscript } from '@/components/shared/LiveTranscript';
 import { ConversationCard } from '@/components/shared/ConversationCard';
+import { TopNavbar } from '@/components/layout/TopNavbar';
+import { YouTubeNotesButton } from '@/components/youtube/YouTubeNotesButton';
 import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
