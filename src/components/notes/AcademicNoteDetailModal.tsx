@@ -122,12 +122,14 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {detail.keyConcepts.map(c => (
-                  <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{c}</span>
-                ))}
+              <div className="overflow-y-auto flex-1 min-h-0">
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {detail.keyConcepts.map(c => (
+                    <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{c}</span>
+                  ))}
+                </div>
+                <MarkdownRenderer content={detail.structuredNotes} />
               </div>
-              <MarkdownRenderer content={detail.structuredNotes} />
             </motion.div>
           </motion.div>
         )}
