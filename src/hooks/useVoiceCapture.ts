@@ -76,7 +76,7 @@ export function useVoiceCapture() {
     const tail = normalizedFull.slice(-500);
 
     // Find overlapping prefix
-    const minOverlap = Math.min(normalizedNew.length, 10);
+    const minOverlap = Math.min(normalizedNew.length, 8);
     for (let i = Math.min(tail.length, normalizedNew.length); i >= minOverlap; i--) {
       const tailSuffix = tail.slice(-i);
       if (normalizedNew.startsWith(tailSuffix)) {
