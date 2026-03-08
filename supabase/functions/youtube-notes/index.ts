@@ -65,32 +65,36 @@ async function fetchPageContent(videoId: string): Promise<{
   const html = await pageRes.text();
   console.log(`  Got HTML: ${html.length} chars`);
 
-  // Extract title - try multiple patterns
+  // Extract title - try multiple patterns, prioritize videoDetails
   let title = "";
   
-  // Try og:title first (most reliable)
-  const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
-  if (ogTitle) title = decodeHtmlEntities(ogTitle[1]);
+  // Try videoDetails.title from ytInitialPlayerResponse (most reliable)
+  const videoDetailsTitle = html.match(/"videoDetails":\s*\{[^}]*"title"\s*:\s*"([^"]+)"/);
+  if (videoDetailsTitle) title = decodeHtmlEntities(videoDetailsTitle[1]);
+  
+  // Try og:title
+  if (!title || title.startsWith("@")) {
+    const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+    if (ogTitle) title = decodeHtmlEntities(ogTitle[1]);
+  }
   
   // Try <title> tag
-  if (!title) {
+  if (!title || title.startsWith("@")) {
     const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    if (titleMatch) title = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
+    if (titleMatch) {
+      const cleaned = decodeHtmlEntities(titleMatch[1]).replace(" - YouTube", "").trim();
+      if (!cleaned.startsWith("@")) title = cleaned;
+    }
   }
   
   // Try twitter:title
-  if (!title) {
+  if (!title || title.startsWith("@")) {
     const twTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/);
-    if (twTitle) title = decodeHtmlEntities(twTitle[1]);
+    if (twTitle && !twTitle[1].startsWith("@")) title = decodeHtmlEntities(twTitle[1]);
   }
 
-  // Try JSON-LD
-  if (!title) {
-    const jsonLd = html.match(/"name"\s*:\s*"([^"]{5,200})"/);
-    if (jsonLd) title = decodeHtmlEntities(jsonLd[1]);
-  }
-
-  if (!title) title = "YouTube Video";
+  // Filter out channel handles used as title
+  if (!title || title.startsWith("@")) title = "YouTube Video";
   console.log(`  Title: ${title}`);
 
   // Extract description from multiple sources
