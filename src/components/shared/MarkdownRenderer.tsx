@@ -186,7 +186,7 @@ export function MarkdownRenderer({ content, className = '', showToc = true }: Ma
           </ul>
         </div>
       )}
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={components}>
         {content}
       </ReactMarkdown>
     </div>

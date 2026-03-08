@@ -396,7 +396,7 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
         messages: [
           {
             role: "system",
-            content: "You are an expert note-taker and educator. Generate thorough, detailed, well-structured notes from video content. Always produce comprehensive output with proper markdown formatting. Return ONLY valid JSON, no markdown code blocks.",
+            content: "You are an expert note-taker and educator. Generate thorough, detailed, well-structured notes from video content. Always produce comprehensive output with proper markdown formatting. Whenever writing any mathematical formula, equation, or scientific notation, always wrap it in LaTeX format using single dollar signs for inline math like $formula$ and double dollar signs for block/display math like $$formula$$. For example: sigmoid function should be written as $h_\\theta(x) = \\frac{1}{1 + e^{-\\theta^T x}}$. Always use proper LaTeX notation for Greek letters like $\\theta$, $\\alpha$, $\\sigma$, $\\mu$, superscripts, subscripts, fractions, and integrals. Return ONLY valid JSON, no markdown code blocks.",
           },
           { role: "user", content: type === "meeting" ? meetingPrompt : academicPrompt },
         ],
