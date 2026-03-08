@@ -17,17 +17,15 @@ export function useVoiceCapture() {
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
-      // 2 min silence — auto-stop and trigger processing
+      // 2 min silence — auto-process but keep mic alive
       const transcript = useAppStore.getState().liveTranscript.trim();
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      useAppStore.getState().setRecording(false);
-      useAppStore.getState().setInterimText('');
       if (transcript.length > 10 && onAutoStopRef.current) {
         onAutoStopRef.current(transcript);
       }
+      // Clear transcript for next segment but keep recording
+      useAppStore.getState().clearTranscript();
+      // Restart silence timer for next segment
+      resetSilenceTimer();
     }, SILENCE_TIMEOUT_MS);
   }, []);
 

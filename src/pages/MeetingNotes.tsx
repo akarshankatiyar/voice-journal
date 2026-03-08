@@ -44,7 +44,7 @@ export default function MeetingNotes() {
         <EmptyState icon={<Handshake className="h-12 w-12" />} title="No meeting notes" description="Record a meeting and AI will auto-generate structured notes." />
       ) : (
         <div className="space-y-4">
-          {mockMeetingNotes.map(note => (
+          {meetingNotes.map(note => (
             <motion.div
               key={note.id}
               variants={item}

@@ -31,7 +31,7 @@ export default function IdeasVault() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
         <h1 className="font-display text-2xl text-foreground mb-1">Ideas Vault</h1>
-        <p className="text-sm text-muted-foreground">{mockIdeas.length} ideas captured</p>
+        <p className="text-sm text-muted-foreground">{ideas.length} ideas captured</p>
       </motion.div>
 
       <motion.div variants={item} className="flex gap-2">

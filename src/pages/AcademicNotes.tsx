@@ -13,11 +13,12 @@ export default function AcademicNotes() {
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
-  const filtered = mockAcademicNotes.filter(n =>
+  const academicNotes = useConversationStore((s) => s.academicNotes);
+  const filtered = academicNotes.filter(n =>
     n.title.toLowerCase().includes(search.toLowerCase()) ||
     n.subject.toLowerCase().includes(search.toLowerCase())
   );
-  const detail = mockAcademicNotes.find(n => n.id === selectedNote);
+  const detail = academicNotes.find(n => n.id === selectedNote);
 
   const handleEdit = () => {
     if (detail) {

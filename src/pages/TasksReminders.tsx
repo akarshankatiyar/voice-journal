@@ -22,9 +22,7 @@ export default function TasksReminders() {
   };
 
   const handleSave = () => {
-    if (editData) {
-      setTasks(prev => prev.map(t => t.id === editingId ? editData : t));
-    }
+    // TODO: update task in store
     setEditingId(null);
     setEditData(null);
   };
