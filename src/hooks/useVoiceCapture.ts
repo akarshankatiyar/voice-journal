@@ -45,22 +45,21 @@ export function useVoiceCapture() {
 
     if (normalizedNew.length === 0) return true;
 
-    // Check if the tail of the transcript already contains this text
-    // Use last 300 chars for comparison to catch overlaps from restarts
-    const tail = normalizedFull.slice(-300);
+    // Use last 500 chars for comparison to catch overlaps from restarts
+    const tail = normalizedFull.slice(-500);
 
     // Exact match at tail end
     if (tail.endsWith(normalizedNew)) return true;
 
-    // Check if new text significantly overlaps with the tail
-    // e.g. tail ends with "we apply external voltage" and new text is "external voltage across"
+    // Check if new text is a substring of the tail (catches short repeated phrases)
+    if (tail.includes(normalizedNew)) return true;
+
     // Find the longest suffix of tail that is a prefix of newText
-    const minOverlap = Math.min(normalizedNew.length, 15); // at least 15 chars overlap
+    const minOverlap = Math.min(normalizedNew.length, 8); // lowered from 15 to 8 chars
     for (let i = Math.min(tail.length, normalizedNew.length); i >= minOverlap; i--) {
       const tailSuffix = tail.slice(-i);
       if (normalizedNew.startsWith(tailSuffix)) {
-        // The new text overlaps — only append the non-overlapping part
-        return true; // treat as duplicate; the overlap handling below will add the new part
+        return true;
       }
     }
 
