@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockAcademicNotes } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { TagBadge } from '@/components/shared/TagBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { GraduationCap, Search, X, Edit2, Save } from 'lucide-react';
