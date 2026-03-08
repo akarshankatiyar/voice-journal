@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* KaTeX styling */
+.katex {
+  font-size: 1.1em;
+  color: hsl(var(--vc-blue-dim));
+}
+.katex-display {
+  background: hsl(var(--card));
+  padding: 14px 20px;
+  border-radius: 10px;
+  border-left: 4px solid hsl(var(--vc-blue));
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+.katex-display .katex {
+  font-size: 1.2em;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
