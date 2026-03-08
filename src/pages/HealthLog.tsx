@@ -18,20 +18,26 @@ const catColors: Record<string, string> = {
 
 export default function HealthLog() {
   const [filter, setFilter] = useState('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const filtered = filter === 'all' ? mockHealthLogs : mockHealthLogs.filter(h => h.category === filter);
+  const detail = mockHealthLogs.find(h => h.id === selectedId);
 
-  const handleEdit = (log: any) => {
-    setEditData({
-      ...log,
-    });
-    setEditingId(log.id);
+  const handleOpenDetail = (log: any) => {
+    setSelectedId(log.id);
+    setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    if (detail) {
+      setEditData({ ...detail });
+      setIsEditing(true);
+    }
   };
 
   const handleSave = () => {
-    // In a real app, this would update the data in your backend/store
-    setEditingId(null);
+    setIsEditing(false);
     setEditData(null);
   };
 
@@ -61,37 +67,75 @@ export default function HealthLog() {
       ) : (
         <div className="space-y-3">
           {filtered.map(log => (
-            <motion.div key={log.id} variants={item} className="glass-card-hover p-4 flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="mt-1 h-2 w-2 rounded-full bg-rose-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground">{log.healthText}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${catColors[log.category]}`}>{log.category}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleDateString()}</span>
-                  </div>
+            <motion.button
+              key={log.id}
+              variants={item}
+              onClick={() => handleOpenDetail(log)}
+              className="w-full text-left glass-card-hover p-4 flex items-start gap-3 transition-all hover:scale-[1.01]"
+            >
+              <div className="mt-1 h-2 w-2 rounded-full bg-rose-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground">{log.healthText}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${catColors[log.category]}`}>{log.category}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <button
-                onClick={() => handleEdit(log)}
-                className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors shrink-0"
-              >
-                <Edit2 className="h-4 w-4" />
-              </button>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Detail Modal */}
       <AnimatePresence>
-        {editingId && editData && (
+        {detail && !isEditing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={() => setEditingId(null)}
+            onClick={() => setSelectedId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="glass-card max-w-md w-full p-6"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <h2 className="font-display text-lg text-foreground">Health Entry</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleEdit}
+                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-foreground mb-3">{detail.healthText}</p>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${catColors[detail.category]}`}>{detail.category}</span>
+                <span className="text-xs text-muted-foreground">{new Date(detail.createdAt).toLocaleDateString()}</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {detail && isEditing && editData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setIsEditing(false)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -102,7 +146,7 @@ export default function HealthLog() {
             >
               <div className="flex items-start justify-between mb-4">
                 <h2 className="font-display text-lg text-foreground">Edit Health Entry</h2>
-                <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -131,7 +175,7 @@ export default function HealthLog() {
                 </div>
                 <div className="flex gap-2 justify-end pt-4 border-t border-primary/10">
                   <button
-                    onClick={() => setEditingId(null)}
+                    onClick={() => setIsEditing(false)}
                     className="flex items-center gap-1 text-sm px-3 py-2 rounded border border-muted text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
                   >
                     <X className="h-4 w-4" />
