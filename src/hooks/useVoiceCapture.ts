@@ -103,6 +103,9 @@ export function useVoiceCapture() {
     // Abort any existing instance to prevent overlapping
     abortCurrent();
 
+    // Record restart timestamp for grace period filtering
+    restartTimestampRef.current = Date.now();
+
     // Commit any pending interim text from the previous session
     if (pendingInterimRef.current.trim()) {
       const pending = pendingInterimRef.current.trim();
@@ -111,6 +114,8 @@ export function useVoiceCapture() {
         if (nonOverlapping.trim()) {
           appendTranscript(nonOverlapping);
         }
+      } else {
+        console.log('[VoiceCapture] Skipped duplicate interim on restart:', pending);
       }
       pendingInterimRef.current = '';
       setInterimText('');
