@@ -8,16 +8,13 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
 export default function TasksReminders() {
-  const [tasks, setTasks] = useState(mockTasks);
+  const tasks = useConversationStore((s) => s.tasks);
+  const toggleTask = useConversationStore((s) => s.toggleTask);
   const [showCompleted, setShowCompleted] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>(null);
   const pending = tasks.filter(t => !t.isDone);
   const completed = tasks.filter(t => t.isDone);
-
-  const toggleTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, isDone: !t.isDone } : t));
-  };
 
   const handleEdit = (task: any) => {
     setEditData({ ...task });
