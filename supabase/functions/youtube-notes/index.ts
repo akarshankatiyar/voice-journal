@@ -36,103 +36,179 @@ function extractTextFromXml(xml: string): string {
   return parts.join(" ");
 }
 
-async function fetchTranscript(videoId: string): Promise<string> {
-  // Try multiple Innertube client types - ANDROID is least blocked
-  const clients = [
-    {
-      clientName: "ANDROID",
-      clientVersion: "19.29.37",
-      apiKey: "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
-      userAgent: "com.google.android.youtube/19.29.37 (Linux; U; Android 14) gzip",
-    },
-    {
-      clientName: "IOS",
-      clientVersion: "19.29.1",
-      apiKey: "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
-      userAgent: "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
-    },
-    {
-      clientName: "WEB",
-      clientVersion: "2.20241120.00.00",
-      apiKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
-    },
-  ];
-
-  for (const client of clients) {
-    try {
-      console.log(`Trying client: ${client.clientName}`);
-      const res = await fetch(
-        `https://www.youtube.com/youtubei/v1/player?key=${client.apiKey}&prettyPrint=false`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": client.userAgent,
-            "X-YouTube-Client-Name": client.clientName === "ANDROID" ? "3" : client.clientName === "IOS" ? "5" : "1",
-            "X-YouTube-Client-Version": client.clientVersion,
-          },
-          body: JSON.stringify({
-            context: {
-              client: {
-                hl: "en",
-                gl: "US",
-                clientName: client.clientName,
-                clientVersion: client.clientVersion,
-                ...(client.clientName === "ANDROID" ? { androidSdkVersion: 34, osName: "Android", osVersion: "14", platform: "MOBILE" } : {}),
-                ...(client.clientName === "IOS" ? { deviceMake: "Apple", deviceModel: "iPhone16,2", osName: "iPhone", osVersion: "17.5.1.21F90", platform: "MOBILE" } : {}),
-              },
+async function tryInnertubeClient(
+  videoId: string,
+  clientName: string,
+  clientVersion: string,
+  clientId: string,
+  apiKey: string,
+  userAgent: string,
+  extraContext?: Record<string, unknown>
+): Promise<string | null> {
+  try {
+    console.log(`Trying client: ${clientName}`);
+    const res = await fetch(
+      `https://www.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": userAgent,
+          "X-YouTube-Client-Name": clientId,
+          "X-YouTube-Client-Version": clientVersion,
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              hl: "en",
+              gl: "US",
+              clientName,
+              clientVersion,
+              ...extraContext,
             },
-            videoId,
-            contentCheckOk: true,
-            racyCheckOk: true,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        console.log(`${client.clientName} returned ${res.status}`);
-        await res.text(); // consume body
-        continue;
+            thirdParty: { embedUrl: "https://www.google.com" },
+          },
+          videoId,
+          contentCheckOk: true,
+          racyCheckOk: true,
+        }),
       }
+    );
 
-      const data = await res.json();
-      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-      if (!tracks || tracks.length === 0) {
-        console.log(`${client.clientName}: no caption tracks found`);
-        continue;
-      }
-
-      console.log(`${client.clientName}: found ${tracks.length} caption tracks`);
-      const enTrack = tracks.find((t: any) => t.languageCode === "en")
-        || tracks.find((t: any) => t.languageCode?.startsWith("en"))
-        || tracks[0];
-
-      let captionUrl = enTrack.baseUrl;
-      if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
-      else captionUrl += "&fmt=srv3";
-
-      const capRes = await fetch(captionUrl, {
-        headers: { "User-Agent": client.userAgent },
-      });
-      if (!capRes.ok) {
-        console.log(`Failed to fetch captions XML: ${capRes.status}`);
-        await capRes.text();
-        continue;
-      }
-
-      const xml = await capRes.text();
-      const text = extractTextFromXml(xml);
-      if (text.length > 50) {
-        console.log(`Got transcript (${text.length} chars) via ${client.clientName}`);
-        return text;
-      }
-      console.log(`${client.clientName}: transcript too short (${text.length} chars)`);
-    } catch (e) {
-      console.log(`${client.clientName} failed:`, e);
+    if (!res.ok) {
+      const body = await res.text();
+      console.log(`${clientName} returned ${res.status}: ${body.slice(0, 300)}`);
+      return null;
     }
+
+    const data = await res.json();
+    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+    if (!tracks || tracks.length === 0) {
+      const bodyStr = JSON.stringify(data).slice(0, 500);
+      console.log(`${clientName}: no caption tracks. Response preview: ${bodyStr}`);
+      return null;
+    }
+
+    console.log(`${clientName}: found ${tracks.length} caption tracks`);
+    const enTrack = tracks.find((t: any) => t.languageCode === "en")
+      || tracks.find((t: any) => t.languageCode?.startsWith("en"))
+      || tracks[0];
+
+    let captionUrl = enTrack.baseUrl;
+    if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
+    else captionUrl += "&fmt=srv3";
+
+    const capRes = await fetch(captionUrl, {
+      headers: { "User-Agent": userAgent },
+    });
+    if (!capRes.ok) {
+      console.log(`${clientName}: failed to fetch captions XML: ${capRes.status}`);
+      await capRes.text();
+      return null;
+    }
+
+    const xml = await capRes.text();
+    const text = extractTextFromXml(xml);
+    if (text.length > 50) {
+      console.log(`Got transcript (${text.length} chars) via ${clientName}`);
+      return text;
+    }
+    console.log(`${clientName}: transcript too short (${text.length} chars)`);
+    return null;
+  } catch (e) {
+    console.log(`${clientName} failed:`, e);
+    return null;
   }
+}
+
+async function fetchTranscriptFromHtmlScrape(videoId: string): Promise<string | null> {
+  try {
+    console.log("Trying HTML scrape fallback");
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cookie": "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMxMTE0LjA3X3AxGgJlbiACGgYIgJnOqwY; CONSENT=PENDING+987",
+      },
+    });
+
+    if (!res.ok) {
+      console.log(`HTML scrape returned ${res.status}`);
+      return null;
+    }
+
+    const html = await res.text();
+    
+    // Extract ytInitialPlayerResponse
+    const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+    if (!playerMatch) {
+      console.log("HTML scrape: could not find ytInitialPlayerResponse");
+      return null;
+    }
+
+    let playerData;
+    try {
+      playerData = JSON.parse(playerMatch[1]);
+    } catch {
+      console.log("HTML scrape: failed to parse ytInitialPlayerResponse");
+      return null;
+    }
+
+    const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!tracks || tracks.length === 0) {
+      console.log("HTML scrape: no caption tracks in player response");
+      return null;
+    }
+
+    console.log(`HTML scrape: found ${tracks.length} caption tracks`);
+    const enTrack = tracks.find((t: any) => t.languageCode === "en")
+      || tracks.find((t: any) => t.languageCode?.startsWith("en"))
+      || tracks[0];
+
+    let captionUrl = enTrack.baseUrl;
+    if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
+    else captionUrl += "&fmt=srv3";
+
+    const capRes = await fetch(captionUrl);
+    if (!capRes.ok) {
+      console.log(`HTML scrape: failed to fetch captions: ${capRes.status}`);
+      return null;
+    }
+
+    const xml = await capRes.text();
+    const text = extractTextFromXml(xml);
+    if (text.length > 50) {
+      console.log(`Got transcript (${text.length} chars) via HTML scrape`);
+      return text;
+    }
+    console.log(`HTML scrape: transcript too short (${text.length} chars)`);
+    return null;
+  } catch (e) {
+    console.log("HTML scrape failed:", e);
+    return null;
+  }
+}
+
+async function fetchTranscript(videoId: string): Promise<string> {
+  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  const apiKey = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+
+  // Method 1: WEB_EMBEDDED_PLAYER (least restricted)
+  let result = await tryInnertubeClient(videoId, "WEB_EMBEDDED_PLAYER", "2.20241126.01.00", "56", apiKey, ua);
+  if (result) return result;
+
+  // Method 2: TVHTML5_SIMPLY_EMBEDDED_PLAYER
+  result = await tryInnertubeClient(videoId, "TVHTML5_SIMPLY_EMBEDDED_PLAYER", "2.0", "85", apiKey, ua);
+  if (result) return result;
+
+  // Method 3: Standard WEB client
+  result = await tryInnertubeClient(videoId, "WEB", "2.20241120.00.00", "1", apiKey, ua);
+  if (result) return result;
+
+  // Method 4: HTML page scrape fallback
+  result = await fetchTranscriptFromHtmlScrape(videoId);
+  if (result) return result;
 
   throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
 }
