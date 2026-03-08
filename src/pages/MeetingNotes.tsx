@@ -11,7 +11,8 @@ export default function MeetingNotes() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
-  const detail = mockMeetingNotes.find(m => m.id === selectedId);
+  const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const detail = meetingNotes.find(m => m.id === selectedId);
 
   const handleEdit = () => {
     if (detail) {
