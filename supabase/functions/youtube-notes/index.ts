@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { YoutubeTranscript } from "npm:youtube-transcript@1.2.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,24 +20,6 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
-    .replace(/\\n/g, " ").replace(/\n/g, " ");
-}
-
-function extractTextFromXml(xml: string): string {
-  const parts: string[] = [];
-  const regex = /<(?:text|p)[^>]*>([\s\S]*?)<\/(?:text|p)>/g;
-  let m;
-  while ((m = regex.exec(xml)) !== null) {
-    const t = decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).trim();
-    if (t) parts.push(t);
-  }
-  return parts.join(" ");
-}
-
 function cleanTranscript(raw: string): string {
   return raw
     .replace(/\[.*?\]/g, "") // Remove [Music], [Applause] etc
@@ -44,233 +27,43 @@ function cleanTranscript(raw: string): string {
     .trim();
 }
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-
-// ===== METHOD 1: Direct timedtext API =====
-async function fetchViaTimedtextAPI(videoId: string): Promise<string | null> {
-  console.log("Method 1: Direct timedtext API...");
-  const langs = ["en", "en-US", "en-GB", "a.en", "hi"];
-  
-  for (const lang of langs) {
-    try {
-      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
-      console.log(`  Trying lang=${lang}...`);
-      const res = await fetch(url, {
-        headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
-      });
-      if (res.ok) {
-        const xml = await res.text();
-        const text = extractTextFromXml(xml);
-        if (text.length > 50) {
-          console.log(`  ✅ timedtext worked! lang=${lang}, ${text.length} chars`);
-          return text;
-        }
-        console.log(`  lang=${lang}: too short (${text.length} chars)`);
-      } else {
-        console.log(`  lang=${lang}: HTTP ${res.status}`);
-      }
-    } catch (e) {
-      console.log(`  lang=${lang}: error ${e}`);
-    }
-  }
-  return null;
-}
-
-// ===== METHOD 2: Scrape page HTML for caption track URLs =====
-async function fetchViaPageScrape(videoId: string): Promise<string | null> {
-  console.log("Method 2: Page scrape for captionTracks...");
-  try {
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: {
-        "User-Agent": UA,
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cookie": "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMxMTE0LjA3X3AxGgJlbiACGgYIgJnOqwY; CONSENT=PENDING+987",
-      },
-    });
-    
-    if (!pageRes.ok) {
-      console.log(`  Page fetch failed: ${pageRes.status}`);
-      return null;
-    }
-    
-    const html = await pageRes.text();
-    console.log(`  Got HTML (${html.length} chars)`);
-    
-    // Extract captionTracks from ytInitialPlayerResponse
-    const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script)/s);
-    if (!playerMatch) {
-      console.log("  No ytInitialPlayerResponse found in HTML");
-      
-      // Try alternative: look for captions in the raw HTML
-      const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
-      if (captionMatch) {
-        console.log("  Found captionTracks via regex!");
-        try {
-          const tracks = JSON.parse(captionMatch[1]);
-          return await fetchFromCaptionTracks(tracks);
-        } catch (e) {
-          console.log(`  Failed to parse captionTracks: ${e}`);
-        }
-      }
-      return null;
-    }
-    
-    try {
-      const playerData = JSON.parse(playerMatch[1]);
-      const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      
-      if (!tracks || tracks.length === 0) {
-        console.log("  No caption tracks in player response");
-        // Check if captions are disabled
-        const playability = playerData?.playabilityStatus?.status;
-        console.log(`  Playability status: ${playability}`);
-        return null;
-      }
-      
-      console.log(`  Found ${tracks.length} caption tracks!`);
-      return await fetchFromCaptionTracks(tracks);
-    } catch (e) {
-      console.log(`  Failed to parse player response: ${e}`);
-    }
-    
-    return null;
-  } catch (e) {
-    console.log(`  Page scrape error: ${e}`);
-    return null;
-  }
-}
-
-// ===== METHOD 3: Innertube player API with embedded client =====
-async function fetchViaInnertubeAPI(videoId: string): Promise<string | null> {
-  console.log("Method 3: Innertube API (WEB_EMBEDDED_PLAYER)...");
-  
-  const clients = [
-    {
-      name: "WEB_EMBEDDED_PLAYER",
-      clientName: "WEB_EMBEDDED_PLAYER",
-      clientVersion: "2.20241126.01.00",
-      clientId: "56",
-    },
-    {
-      name: "WEB",
-      clientName: "WEB", 
-      clientVersion: "2.20241120.00.00",
-      clientId: "1",
-    },
-  ];
-  
-  for (const client of clients) {
-    try {
-      console.log(`  Trying ${client.name}...`);
-      const res = await fetch(
-        `https://www.youtube.com/youtubei/v1/player?prettyPrint=false`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": UA,
-            "X-YouTube-Client-Name": client.clientId,
-            "X-YouTube-Client-Version": client.clientVersion,
-            "Origin": "https://www.youtube.com",
-            "Referer": `https://www.youtube.com/watch?v=${videoId}`,
-          },
-          body: JSON.stringify({
-            context: {
-              client: {
-                hl: "en",
-                gl: "US",
-                clientName: client.clientName,
-                clientVersion: client.clientVersion,
-              },
-            },
-            videoId,
-          }),
-        }
-      );
-      
-      if (!res.ok) {
-        console.log(`  ${client.name}: HTTP ${res.status}`);
-        continue;
-      }
-      
-      const data = await res.json();
-      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      
-      if (tracks && tracks.length > 0) {
-        console.log(`  ✅ ${client.name}: found ${tracks.length} tracks`);
-        return await fetchFromCaptionTracks(tracks);
-      }
-      
-      console.log(`  ${client.name}: no caption tracks`);
-    } catch (e) {
-      console.log(`  ${client.name}: error ${e}`);
-    }
-  }
-  
-  return null;
-}
-
-// Helper: fetch transcript text from caption track objects
-async function fetchFromCaptionTracks(tracks: any[]): Promise<string | null> {
-  // Prefer English, then auto-generated English, then first available
-  const enTrack = tracks.find((t: any) => t.languageCode === "en" && t.kind !== "asr")
-    || tracks.find((t: any) => t.languageCode === "en")
-    || tracks.find((t: any) => t.languageCode?.startsWith("en"))
-    || tracks[0];
-  
-  if (!enTrack?.baseUrl) {
-    console.log("  No valid track URL found");
-    return null;
-  }
-  
-  let captionUrl = enTrack.baseUrl;
-  // Ensure srv3 format for XML parsing
-  if (captionUrl.includes("fmt=")) {
-    captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
-  } else {
-    captionUrl += "&fmt=srv3";
-  }
-  
-  console.log(`  Fetching captions from track (lang: ${enTrack.languageCode})...`);
-  const capRes = await fetch(captionUrl, { headers: { "User-Agent": UA } });
-  
-  if (!capRes.ok) {
-    console.log(`  Caption fetch failed: ${capRes.status}`);
-    return null;
-  }
-  
-  const xml = await capRes.text();
-  const text = extractTextFromXml(xml);
-  
-  if (text.length > 50) {
-    console.log(`  ✅ Got transcript: ${text.length} chars`);
-    return text;
-  }
-  
-  console.log(`  Transcript too short: ${text.length} chars`);
-  return null;
-}
-
-// ===== MAIN: Try all methods in sequence =====
 async function fetchTranscript(videoId: string): Promise<string> {
-  // Method 1: Direct timedtext API (simplest, fastest)
-  let transcript = await fetchViaTimedtextAPI(videoId);
-  if (transcript) return cleanTranscript(transcript);
-  
-  // Method 2: Scrape page HTML for caption track URLs
-  transcript = await fetchViaPageScrape(videoId);
-  if (transcript) return cleanTranscript(transcript);
-  
-  // Method 3: Innertube player API
-  transcript = await fetchViaInnertubeAPI(videoId);
-  if (transcript) return cleanTranscript(transcript);
-  
+  console.log(`Fetching transcript for ${videoId} using youtube-transcript package...`);
+
+  // Try multiple language codes
+  const langAttempts = [
+    undefined, // default (auto-detect)
+    "en",
+    "en-US",
+    "hi",
+  ];
+
+  for (const lang of langAttempts) {
+    try {
+      const config = lang ? { lang } : undefined;
+      console.log(`  Trying lang=${lang || "auto"}...`);
+      const segments = await YoutubeTranscript.fetchTranscript(videoId, config);
+
+      if (segments && segments.length > 0) {
+        const text = segments.map((s: any) => s.text).join(" ");
+        const cleaned = cleanTranscript(text);
+        if (cleaned.length > 50) {
+          console.log(`  ✅ Got transcript: ${cleaned.length} chars (lang=${lang || "auto"})`);
+          return cleaned;
+        }
+      }
+      console.log(`  lang=${lang || "auto"}: no usable content`);
+    } catch (e: any) {
+      console.log(`  lang=${lang || "auto"}: ${e.message || e}`);
+    }
+  }
+
   throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
 }
 
 async function getVideoTitle(videoId: string): Promise<string> {
   try {
-    const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
     const data = await res.json();
     return data.title || "YouTube Video";
   } catch {
@@ -322,10 +115,10 @@ serve(async (req) => {
     try { classification = JSON.parse(classContent); } catch { classification = { type: "academic" }; }
     const type = classification.type || "academic";
 
-    // Generate structured notes
+    // Generate structured notes using Gemini
     const notesPrompt = type === "meeting"
-      ? `Convert this YouTube video transcript into structured meeting notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"title": "${videoTitle}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
-      : `Convert this YouTube video transcript into structured academic notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${videoTitle}", "structured_notes": "Full formatted notes in markdown with ## headings, bullet points, **bold** terms", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
+      ? `This is a transcript from a YouTube video. Convert it into structured meeting notes. Return ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"title": "${videoTitle}", "attendees": ["speaker names if identifiable"], "agenda": "What the video/meeting was about", "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}], "decisions": ["Key decisions or conclusions"], "structured_notes": "Formatted notes in markdown with ## headings, bullet points", "summary": "2-3 sentence summary"}`
+      : `This is a transcript from a YouTube educational video. Convert it into rich structured academic notes with:\n- ## headings for each topic\n- bullet points for key concepts\n- important definitions marked with **Definition:** prefix\n- key takeaways section at the end\n- a 3-line summary at the top\nFormat the structured_notes field in markdown.\n\nReturn ONLY valid JSON.\n\nTranscript: "${transcript.slice(0, 15000)}"\n\nReturn:\n{"subject": "detected subject/topic", "title": "${videoTitle}", "structured_notes": "Full formatted notes in markdown", "key_concepts": ["concept1", "concept2"], "summary": "2-3 sentence overview", "definitions": [{"term": "term1", "definition": "def1"}]}`;
 
     const notesRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -333,7 +126,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You generate structured notes from video transcripts. Return ONLY valid JSON." },
+          { role: "system", content: "You generate structured notes from video transcripts. Return ONLY valid JSON, no markdown code blocks." },
           { role: "user", content: notesPrompt },
         ],
       }),
@@ -367,6 +160,8 @@ serve(async (req) => {
       transcript: transcript.slice(0, 5000),
       summary: notes.summary || "Notes generated from YouTube video",
       notes,
+      source: "youtube",
+      videoId,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
