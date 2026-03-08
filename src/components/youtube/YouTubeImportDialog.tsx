@@ -114,7 +114,7 @@ export function YouTubeImportDialog() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              📺 Import from YouTube
+              <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5" /> Import from YouTube
             </DialogTitle>
           </DialogHeader>
 
