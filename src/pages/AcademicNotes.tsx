@@ -19,6 +19,7 @@ export default function AcademicNotes() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const academicNotes = useConversationStore((s) => s.academicNotes);
+  const deleteAcademicNote = useConversationStore((s) => s.deleteAcademicNote);
   const filtered = academicNotes.filter(n =>
     n.title.toLowerCase().includes(search.toLowerCase()) ||
     n.subject.toLowerCase().includes(search.toLowerCase())
