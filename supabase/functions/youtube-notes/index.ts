@@ -36,25 +36,174 @@ function extractTextFromXml(xml: string): string {
   return parts.join(" ");
 }
 
-async function tryInnertubeClient(
-  videoId: string,
-  clientName: string,
-  clientVersion: string,
-  clientId: string,
-  apiKey: string,
-  userAgent: string,
-  extraContext?: Record<string, unknown>
-): Promise<string | null> {
+// Recursively search a JSON object for a key
+function findNestedKey(obj: any, targetKey: string): any {
+  if (!obj || typeof obj !== "object") return undefined;
+  if (targetKey in obj) return obj[targetKey];
+  for (const key of Object.keys(obj)) {
+    const result = findNestedKey(obj[key], targetKey);
+    if (result !== undefined) return result;
+  }
+  return undefined;
+}
+
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+// Method 1: Fetch page HTML, extract API key + caption tracks OR transcript token
+async function fetchTranscriptFromPage(videoId: string): Promise<string> {
+  console.log("Method 1: Fetching video page HTML...");
+  
+  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: {
+      "User-Agent": UA,
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cookie": "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMxMTE0LjA3X3AxGgJlbiACGgYIgJnOqwY; CONSENT=PENDING+987",
+    },
+  });
+  
+  if (!pageRes.ok) {
+    throw new Error(`Page fetch failed: ${pageRes.status}`);
+  }
+  
+  const html = await pageRes.text();
+  console.log(`Got HTML (${html.length} chars)`);
+  
+  // Extract INNERTUBE_API_KEY from the page
+  const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
+  const apiKey = apiKeyMatch ? apiKeyMatch[1] : "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+  console.log(`API Key: ${apiKey}`);
+  
+  // Extract client version from page
+  const versionMatch = html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/);
+  const clientVersion = versionMatch ? versionMatch[1] : "2.20241120.00.00";
+  console.log(`Client version: ${clientVersion}`);
+  
+  // Try to extract ytInitialPlayerResponse for caption tracks
+  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s);
+  if (playerMatch) {
+    try {
+      const playerData = JSON.parse(playerMatch[1]);
+      
+      // First try: direct caption tracks
+      const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (tracks && tracks.length > 0) {
+        console.log(`Found ${tracks.length} caption tracks from page`);
+        return await fetchCaptionsFromTracks(tracks);
+      }
+      
+      // Second try: get_transcript endpoint via continuation token
+      const transcriptEndpoint = findNestedKey(playerData, "getTranscriptEndpoint");
+      if (transcriptEndpoint?.params) {
+        console.log("Found getTranscriptEndpoint, trying get_transcript...");
+        const transcript = await fetchViaGetTranscript(transcriptEndpoint.params, apiKey, clientVersion);
+        if (transcript) return transcript;
+      }
+    } catch (e) {
+      console.log("Failed to parse ytInitialPlayerResponse:", e);
+    }
+  }
+  
+  // Third try: use the extracted API key with player endpoint
+  console.log("Trying player endpoint with page-extracted API key...");
+  const playerRes = await fetch(
+    `https://www.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": UA,
+        "X-YouTube-Client-Name": "1",
+        "X-YouTube-Client-Version": clientVersion,
+        "Origin": "https://www.youtube.com",
+        "Referer": `https://www.youtube.com/watch?v=${videoId}`,
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            hl: "en",
+            gl: "US",
+            clientName: "WEB",
+            clientVersion,
+          },
+        },
+        videoId,
+      }),
+    }
+  );
+  
+  if (playerRes.ok) {
+    const data = await playerRes.json();
+    
+    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (tracks && tracks.length > 0) {
+      console.log(`Player endpoint: found ${tracks.length} tracks`);
+      return await fetchCaptionsFromTracks(tracks);
+    }
+    
+    // Try get_transcript from player response
+    const transcriptEndpoint = findNestedKey(data, "getTranscriptEndpoint");
+    if (transcriptEndpoint?.params) {
+      console.log("Found getTranscriptEndpoint in player response");
+      const transcript = await fetchViaGetTranscript(transcriptEndpoint.params, apiKey, clientVersion);
+      if (transcript) return transcript;
+    }
+    
+    console.log("Player response has no captions or transcript endpoint");
+  } else {
+    const body = await playerRes.text();
+    console.log(`Player endpoint failed: ${playerRes.status} ${body.slice(0, 200)}`);
+  }
+  
+  // Fourth try: timedtext API directly
+  console.log("Trying timedtext API directly...");
+  for (const lang of ["en", "en-US", "a.en"]) {
+    try {
+      const ttRes = await fetch(
+        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
+        { headers: { "User-Agent": UA } }
+      );
+      if (ttRes.ok) {
+        const xml = await ttRes.text();
+        const text = extractTextFromXml(xml);
+        if (text.length > 50) {
+          console.log(`Timedtext API worked with lang=${lang} (${text.length} chars)`);
+          return text;
+        }
+      }
+    } catch { /* continue */ }
+  }
+  
+  throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
+}
+
+async function fetchCaptionsFromTracks(tracks: any[]): Promise<string> {
+  const enTrack = tracks.find((t: any) => t.languageCode === "en")
+    || tracks.find((t: any) => t.languageCode?.startsWith("en"))
+    || tracks[0];
+  
+  let captionUrl = enTrack.baseUrl;
+  if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
+  else captionUrl += "&fmt=srv3";
+  
+  const capRes = await fetch(captionUrl, { headers: { "User-Agent": UA } });
+  if (!capRes.ok) throw new Error(`Caption fetch failed: ${capRes.status}`);
+  
+  const xml = await capRes.text();
+  const text = extractTextFromXml(xml);
+  if (text.length > 50) return text;
+  throw new Error("Transcript too short");
+}
+
+async function fetchViaGetTranscript(params: string, apiKey: string, clientVersion: string): Promise<string | null> {
   try {
-    console.log(`Trying client: ${clientName}`);
     const res = await fetch(
-      `https://www.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
+      `https://www.youtube.com/youtubei/v1/get_transcript?key=${apiKey}&prettyPrint=false`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": userAgent,
-          "X-YouTube-Client-Name": clientId,
+          "User-Agent": UA,
+          "X-YouTube-Client-Name": "1",
           "X-YouTube-Client-Version": clientVersion,
         },
         body: JSON.stringify({
@@ -62,155 +211,63 @@ async function tryInnertubeClient(
             client: {
               hl: "en",
               gl: "US",
-              clientName,
+              clientName: "WEB",
               clientVersion,
-              ...extraContext,
             },
-            thirdParty: { embedUrl: "https://www.google.com" },
           },
-          videoId,
-          contentCheckOk: true,
-          racyCheckOk: true,
+          params,
         }),
       }
     );
-
+    
     if (!res.ok) {
       const body = await res.text();
-      console.log(`${clientName} returned ${res.status}: ${body.slice(0, 300)}`);
+      console.log(`get_transcript failed: ${res.status} ${body.slice(0, 300)}`);
       return null;
     }
-
-    const data = await res.json();
-    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-    if (!tracks || tracks.length === 0) {
-      const bodyStr = JSON.stringify(data).slice(0, 500);
-      console.log(`${clientName}: no caption tracks. Response preview: ${bodyStr}`);
-      return null;
-    }
-
-    console.log(`${clientName}: found ${tracks.length} caption tracks`);
-    const enTrack = tracks.find((t: any) => t.languageCode === "en")
-      || tracks.find((t: any) => t.languageCode?.startsWith("en"))
-      || tracks[0];
-
-    let captionUrl = enTrack.baseUrl;
-    if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
-    else captionUrl += "&fmt=srv3";
-
-    const capRes = await fetch(captionUrl, {
-      headers: { "User-Agent": userAgent },
-    });
-    if (!capRes.ok) {
-      console.log(`${clientName}: failed to fetch captions XML: ${capRes.status}`);
-      await capRes.text();
-      return null;
-    }
-
-    const xml = await capRes.text();
-    const text = extractTextFromXml(xml);
-    if (text.length > 50) {
-      console.log(`Got transcript (${text.length} chars) via ${clientName}`);
-      return text;
-    }
-    console.log(`${clientName}: transcript too short (${text.length} chars)`);
-    return null;
-  } catch (e) {
-    console.log(`${clientName} failed:`, e);
-    return null;
-  }
-}
-
-async function fetchTranscriptFromHtmlScrape(videoId: string): Promise<string | null> {
-  try {
-    console.log("Trying HTML scrape fallback");
-    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cookie": "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMxMTE0LjA3X3AxGgJlbiACGgYIgJnOqwY; CONSENT=PENDING+987",
-      },
-    });
-
-    if (!res.ok) {
-      console.log(`HTML scrape returned ${res.status}`);
-      return null;
-    }
-
-    const html = await res.text();
     
-    // Extract ytInitialPlayerResponse
-    const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
-    if (!playerMatch) {
-      console.log("HTML scrape: could not find ytInitialPlayerResponse");
-      return null;
+    const data = await res.json();
+    console.log(`get_transcript response keys: ${JSON.stringify(Object.keys(data))}`);
+    
+    // Extract transcript segments from the response
+    const segments: string[] = [];
+    
+    // The response structure has transcriptRenderer > body > transcriptBodyRenderer > cueGroups
+    const cueGroups = findNestedKey(data, "cueGroups");
+    if (Array.isArray(cueGroups)) {
+      for (const group of cueGroups) {
+        const cues = group?.transcriptCueGroupRenderer?.cues;
+        if (Array.isArray(cues)) {
+          for (const cue of cues) {
+            const text = cue?.transcriptCueRenderer?.cue?.simpleText;
+            if (text) segments.push(text.trim());
+          }
+        }
+      }
     }
-
-    let playerData;
-    try {
-      playerData = JSON.parse(playerMatch[1]);
-    } catch {
-      console.log("HTML scrape: failed to parse ytInitialPlayerResponse");
-      return null;
+    
+    // Also try initialSegments
+    const initialSegments = findNestedKey(data, "initialSegments");
+    if (Array.isArray(initialSegments) && segments.length === 0) {
+      for (const seg of initialSegments) {
+        const text = seg?.transcriptSectionHeaderRenderer?.sectionHeader?.simpleText
+          || seg?.transcriptSegmentRenderer?.snippet?.runs?.map((r: any) => r.text).join("");
+        if (text) segments.push(text.trim());
+      }
     }
-
-    const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!tracks || tracks.length === 0) {
-      console.log("HTML scrape: no caption tracks in player response");
-      return null;
+    
+    if (segments.length > 0) {
+      const transcript = segments.join(" ");
+      console.log(`get_transcript extracted ${segments.length} segments (${transcript.length} chars)`);
+      if (transcript.length > 50) return transcript;
     }
-
-    console.log(`HTML scrape: found ${tracks.length} caption tracks`);
-    const enTrack = tracks.find((t: any) => t.languageCode === "en")
-      || tracks.find((t: any) => t.languageCode?.startsWith("en"))
-      || tracks[0];
-
-    let captionUrl = enTrack.baseUrl;
-    if (captionUrl.includes("fmt=")) captionUrl = captionUrl.replace(/fmt=[^&]+/, "fmt=srv3");
-    else captionUrl += "&fmt=srv3";
-
-    const capRes = await fetch(captionUrl);
-    if (!capRes.ok) {
-      console.log(`HTML scrape: failed to fetch captions: ${capRes.status}`);
-      return null;
-    }
-
-    const xml = await capRes.text();
-    const text = extractTextFromXml(xml);
-    if (text.length > 50) {
-      console.log(`Got transcript (${text.length} chars) via HTML scrape`);
-      return text;
-    }
-    console.log(`HTML scrape: transcript too short (${text.length} chars)`);
+    
+    console.log(`get_transcript: no usable segments found. Response preview: ${JSON.stringify(data).slice(0, 500)}`);
     return null;
   } catch (e) {
-    console.log("HTML scrape failed:", e);
+    console.log("get_transcript error:", e);
     return null;
   }
-}
-
-async function fetchTranscript(videoId: string): Promise<string> {
-  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-  const apiKey = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-
-  // Method 1: WEB_EMBEDDED_PLAYER (least restricted)
-  let result = await tryInnertubeClient(videoId, "WEB_EMBEDDED_PLAYER", "2.20241126.01.00", "56", apiKey, ua);
-  if (result) return result;
-
-  // Method 2: TVHTML5_SIMPLY_EMBEDDED_PLAYER
-  result = await tryInnertubeClient(videoId, "TVHTML5_SIMPLY_EMBEDDED_PLAYER", "2.0", "85", apiKey, ua);
-  if (result) return result;
-
-  // Method 3: Standard WEB client
-  result = await tryInnertubeClient(videoId, "WEB", "2.20241120.00.00", "1", apiKey, ua);
-  if (result) return result;
-
-  // Method 4: HTML page scrape fallback
-  result = await fetchTranscriptFromHtmlScrape(videoId);
-  if (result) return result;
-
-  throw new Error("No captions available for this video. The video must have subtitles/CC enabled.");
 }
 
 async function getVideoTitle(videoId: string): Promise<string> {
@@ -241,7 +298,7 @@ serve(async (req) => {
     console.log(`Processing video: ${videoId}`);
 
     const [transcript, videoTitle] = await Promise.all([
-      fetchTranscript(videoId),
+      fetchTranscriptFromPage(videoId),
       getVideoTitle(videoId),
     ]);
 
