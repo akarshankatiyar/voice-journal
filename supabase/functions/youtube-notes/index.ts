@@ -392,6 +392,52 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
   "summary": "2-3 sentence summary"
 }`;
 
+    // Use tool calling for reliable structured output
+    const academicTool = {
+      type: "function",
+      function: {
+        name: "save_academic_notes",
+        description: "Save structured academic notes from a video",
+        parameters: {
+          type: "object",
+          properties: {
+            subject: { type: "string", description: "Subject/topic area" },
+            title: { type: "string", description: "Note title" },
+            structured_notes: { type: "string", description: "Full comprehensive notes in markdown format with ## headings, **bold**, bullet points, callouts like Definition:, Important:, Key Takeaway:, Formula: prefixes. Use LaTeX for math: $inline$ and $$block$$. At least 600 words." },
+            key_concepts: { type: "array", items: { type: "string" }, description: "List of key concepts covered" },
+            summary: { type: "string", description: "2-3 sentence overview" },
+          },
+          required: ["subject", "title", "structured_notes", "key_concepts", "summary"],
+          additionalProperties: false,
+        },
+      },
+    };
+
+    const meetingTool = {
+      type: "function",
+      function: {
+        name: "save_meeting_notes",
+        description: "Save structured meeting notes from a video",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            attendees: { type: "array", items: { type: "string" } },
+            agenda: { type: "string" },
+            action_items: { type: "array", items: { type: "object", properties: { task: { type: "string" }, owner: { type: "string" }, due: { type: "string" } }, required: ["task"] } },
+            decisions: { type: "array", items: { type: "string" } },
+            structured_notes: { type: "string", description: "Detailed notes in markdown with ## headings. At least 500 words." },
+            summary: { type: "string" },
+          },
+          required: ["title", "structured_notes", "summary"],
+          additionalProperties: false,
+        },
+      },
+    };
+
+    const tool = type === "meeting" ? meetingTool : academicTool;
+    const toolName = type === "meeting" ? "save_meeting_notes" : "save_academic_notes";
+
     const notesRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -400,10 +446,12 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
         messages: [
           {
             role: "system",
-            content: "You are an expert note-taker and educator. Generate thorough, detailed, well-structured notes from video content. Always produce comprehensive output with proper markdown formatting. Whenever writing any mathematical formula, equation, or scientific notation, always wrap it in LaTeX format using single dollar signs for inline math like $formula$ and double dollar signs for block/display math like $$formula$$. For example: sigmoid function should be written as $h_\\theta(x) = \\frac{1}{1 + e^{-\\theta^T x}}$. Always use proper LaTeX notation for Greek letters like $\\theta$, $\\alpha$, $\\sigma$, $\\mu$, superscripts, subscripts, fractions, and integrals. Return ONLY valid JSON, no markdown code blocks.",
+            content: "You are an expert note-taker and educator. Generate thorough, detailed, well-structured notes from video content. Always produce comprehensive output with proper markdown formatting. Whenever writing any mathematical formula, equation, or scientific notation, always wrap it in LaTeX format using single dollar signs for inline math like $formula$ and double dollar signs for block/display math like $$formula$$. For example: sigmoid function should be written as $h_\\theta(x) = \\frac{1}{1 + e^{-\\theta^T x}}$. Always use proper LaTeX notation for Greek letters like $\\theta$, $\\alpha$, $\\sigma$, $\\mu$, superscripts, subscripts, fractions, and integrals.",
           },
           { role: "user", content: type === "meeting" ? meetingPrompt : academicPrompt },
         ],
+        tools: [tool],
+        tool_choice: { type: "function", function: { name: toolName } },
       }),
     });
 
@@ -424,40 +472,26 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
     }
 
     const notesData = await notesRes.json();
-    let notesContent = notesData.choices?.[0]?.message?.content || "{}";
-    notesContent = notesContent.replace(/```json\n?/g, "").replace(/```/g, "").trim();
-
-    let notes;
-    try {
-      notes = JSON.parse(notesContent);
-    } catch {
-      // Try stripping control characters and re-parsing
+    
+    // Extract from tool call response
+    let notes: any;
+    const toolCall = notesData.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
       try {
-        const cleaned = notesContent
-          .replace(/[\x00-\x1F\x7F]/g, ' ')
-          .replace(/\\\n/g, '\\n');
-        notes = JSON.parse(cleaned);
+        notes = JSON.parse(toolCall.function.arguments);
       } catch {
-        // Try extracting JSON substring from mixed content
-        try {
-          const jsonMatch = notesContent.match(/\{[\s\S]*"structured_notes"\s*:[\s\S]*\}/);
-          if (jsonMatch) {
-            // Try to repair unclosed braces/brackets
-            let candidate = jsonMatch[0];
-            let braces = 0, brackets = 0;
-            for (const c of candidate) {
-              if (c === '{') braces++;
-              if (c === '}') braces--;
-              if (c === '[') brackets++;
-              if (c === ']') brackets--;
-            }
-            while (brackets > 0) { candidate += ']'; brackets--; }
-            while (braces > 0) { candidate += '}'; braces--; }
-            notes = JSON.parse(candidate);
-          } else {
-            notes = { parse_error: true, raw: notesContent };
-          }
-        } catch {
+        notes = { parse_error: true, raw: toolCall.function.arguments };
+      }
+    } else {
+      // Fallback: try content field
+      let notesContent = notesData.choices?.[0]?.message?.content || "{}";
+      notesContent = notesContent.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+      try {
+        notes = JSON.parse(notesContent);
+      } catch {
+        notes = { parse_error: true, raw: notesContent };
+      }
+    }
           notes = { parse_error: true, raw: notesContent };
         }
       }
