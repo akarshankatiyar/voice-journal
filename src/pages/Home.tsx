@@ -78,6 +78,9 @@ export default function Home() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      {/* Top Navbar */}
+      <TopNavbar />
+
       {/* Component 1 — Live Status Card */}
       <motion.div variants={item} className="glass-card p-5">
         <div className="flex items-center gap-2 mb-4">
