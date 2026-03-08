@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'use';
+import { useCallback, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 
 interface SpeechRecognitionEvent {
