@@ -103,7 +103,7 @@ export default function Home() {
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-5 overflow-x-hidden w-full min-w-0">
       <TopNavbar />
 
       {/* Live transcript */}
@@ -122,25 +122,25 @@ export default function Home() {
             {/* Record half */}
             <button
               onClick={handleMicClick}
-              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
             >
-              <span className={`text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
-              <span className="font-display text-base text-foreground">
+              <span className={`text-xl sm:text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
+              <span className="font-display text-sm sm:text-base text-foreground truncate">
                 {isRecording ? 'Stop' : 'Record'}
               </span>
-              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />}
+              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />}
             </button>
 
             {/* Divider */}
             <div className="w-px bg-primary/10 my-3" />
 
-            {/* Video Notes half */}
+            {/* Video to Notes — opens YouTube import */}
             <button
               onClick={() => setYoutubeOpen(true)}
-              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 hover:bg-primary/5 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
             >
-              <span className="text-2xl">📺</span>
-              <span className="font-display text-base text-foreground">Video Notes</span>
+              <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
+              <span className="font-display text-sm sm:text-base text-foreground truncate">Video to Notes</span>
             </button>
           </div>
         </div>
@@ -149,14 +149,14 @@ export default function Home() {
       <YouTubeImportDialog open={youtubeOpen} onOpenChange={setYoutubeOpen} />
 
       {/* Status Card */}
-      <motion.div variants={item} className="glass-card p-5">
+      <motion.div variants={item} className="glass-card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
             </span>
-            <span className="font-display text-xl text-foreground font-bold">EchoMind is Active</span>
+            <span className="font-display text-lg sm:text-xl text-foreground font-bold">EchoMind is Active</span>
           </div>
           {lastCaptured && (
             <span className="text-[10px] font-body text-muted-foreground bg-card/60 px-2 py-1 rounded-full border border-primary/5">
@@ -165,7 +165,7 @@ export default function Home() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {statTiles.map((stat) => (
             <Link
               key={stat.label}
@@ -191,7 +191,7 @@ export default function Home() {
       </motion.div>
 
       {/* Today's Brief — Premium diary style */}
-      <motion.div variants={item} className="rounded-xl p-5 relative overflow-hidden" style={{ background: '#0D1B2A' }}>
+      <motion.div variants={item} className="rounded-xl p-4 sm:p-5 relative overflow-hidden" style={{ background: '#0D1B2A' }}>
         <Quote className="absolute top-3 left-4 h-8 w-8 text-[hsl(var(--gold))] opacity-30" />
         <div className="flex items-center justify-between mb-3 relative z-10">
           <div className="flex items-center gap-2">
