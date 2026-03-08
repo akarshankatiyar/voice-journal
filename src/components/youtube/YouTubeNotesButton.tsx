@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle, ExternalLink, GraduationCap } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,9 @@ export function YouTubeNotesButton() {
   const [url, setUrl] = useState('');
   const [stage, setStage] = useState<ProcessingStage>('idle');
   const [savedSection, setSavedSection] = useState<{ label: string; path: string } | null>(null);
-  const { addConversation, addAcademicNote, addMeetingNote } = useConversationStore();
+  const [showAcademicBanner, setShowAcademicBanner] = useState(false);
+  const [lastNoteId, setLastNoteId] = useState<string | null>(null);
+  const { addConversation, addAcademicNote } = useConversationStore();
 
   const handleSubmit = async () => {
     if (!url.trim()) return;
@@ -42,13 +44,7 @@ export function YouTubeNotesButton() {
 
       const now = new Date().toISOString();
       const convId = `yt_${Date.now()}`;
-      const type = data.type || 'academic';
-      const sectionMap: Record<string, { label: string; path: string }> = {
-        academic: { label: 'Academic Notes', path: '/academic-notes' },
-        meeting: { label: 'Meeting Notes', path: '/meeting-notes' },
-        personal: { label: "Today's Text", path: '/todays-text' },
-        mixed: { label: "Today's Text", path: '/todays-text' },
-      };
+      const noteId = `an_${Date.now()}`;
 
       addConversation({
         id: convId,
@@ -56,11 +52,11 @@ export function YouTubeNotesButton() {
         title: data.title || 'YouTube Video Notes',
         fullTranscript: data.transcript || '',
         summary: data.summary || '',
-        type,
+        type: 'academic',
         subTypes: [],
         peopleMentioned: [],
         tags: ['youtube'],
-        linkedSection: type === 'academic' ? 'academic_notes' : type === 'meeting' ? 'meeting_notes' : null,
+        linkedSection: 'youtube_notes',
         images: [],
         isLive: false,
         startedAt: now,
@@ -70,36 +66,29 @@ export function YouTubeNotesButton() {
 
       const notes = resolveNotes(data.notes, data.title, data.summary);
 
-      if (type === 'academic') {
-        addAcademicNote({
-          id: `an_${Date.now()}`,
-          conversationId: convId,
-          title: notes.title,
-          subject: notes.subject,
-          structuredNotes: notes.structured_notes,
-          keyConcepts: notes.key_concepts,
-          summary: notes.summary,
-          createdAt: now,
-        });
-      } else if (type === 'meeting') {
-        addMeetingNote({
-          id: `mn_${Date.now()}`,
-          conversationId: convId,
-          title: notes.title,
-          attendees: notes.attendees || [],
-          agenda: notes.agenda || '',
-          actionItems: (notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
-          decisions: notes.decisions || [],
-          structuredNotes: notes.structured_notes,
-          summary: notes.summary,
-          createdAt: now,
-        });
+      addAcademicNote({
+        id: noteId,
+        conversationId: convId,
+        title: notes.title,
+        subject: notes.subject,
+        structuredNotes: notes.structured_notes,
+        keyConcepts: notes.key_concepts,
+        summary: notes.summary,
+        createdAt: now,
+        source: 'youtube',
+        videoId: data.videoId,
+      });
+
+      setLastNoteId(noteId);
+
+      // Check if AI classified it as academic
+      if (data.isAcademic && data.academicConfidence > 70) {
+        setShowAcademicBanner(true);
       }
 
-      const section = sectionMap[type] || sectionMap.academic;
-      setSavedSection(section);
+      setSavedSection({ label: 'YouTube Notes', path: '/youtube-notes' });
       setStage('done');
-      toast.success(`✅ Notes saved to ${section.label}`);
+      toast.success('✅ Notes saved to YouTube Notes');
     } catch (err: any) {
       console.error('YouTube notes error:', err);
       toast.error(err.message || 'Failed to generate notes from YouTube video');
@@ -112,6 +101,8 @@ export function YouTubeNotesButton() {
     setUrl('');
     setStage('idle');
     setSavedSection(null);
+    setShowAcademicBanner(false);
+    setLastNoteId(null);
   };
 
   return (
@@ -177,6 +168,36 @@ export function YouTubeNotesButton() {
               <p className="text-sm text-foreground text-center">
                 ✅ Notes saved to <strong>{savedSection.label}</strong>
               </p>
+
+              {/* Academic banner */}
+              {showAcademicBanner && (
+                <div className="w-full bg-vc-blue/10 border border-vc-blue/20 rounded-lg p-3 text-center space-y-2">
+                  <p className="text-sm text-foreground">
+                    🎓 This looks like an academic video. Save to Academic Notes?
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setShowAcademicBanner(false);
+                        toast.success('Already in Academic Notes!');
+                      }}
+                      className="text-xs"
+                    >
+                      <GraduationCap className="h-3 w-3 mr-1" /> Yes, Move it
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAcademicBanner(false)}
+                      className="text-xs"
+                    >
+                      Keep in YouTube Notes
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <Link
                 to={savedSection.path}
                 onClick={handleClose}

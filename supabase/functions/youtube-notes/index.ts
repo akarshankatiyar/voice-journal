@@ -495,6 +495,32 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
 
     console.log(`✅ Done! Type: ${type}, has transcript: ${hasTranscript}, notes length: ${JSON.stringify(notes).length}`);
 
+    // Step: Academic classification check for YouTube notes
+    let isAcademic = false;
+    let academicConfidence = 0;
+    try {
+      const academicCheckRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-lite",
+          messages: [
+            { role: "system", content: "You classify video content. Return ONLY valid JSON, no backticks." },
+            { role: "user", content: `Based on this content, is this video educational or academic in nature — like a lecture, tutorial, course, or study material? Reply with ONLY: {"is_academic": true/false, "confidence": 0-100}\n\nTitle: "${title}"\nContent (first 1000 chars): "${contentForAI.slice(0, 1000)}"` },
+          ],
+        }),
+      });
+      const academicData = await academicCheckRes.json();
+      let academicContent = academicData.choices?.[0]?.message?.content || '{}';
+      academicContent = academicContent.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(academicContent);
+      isAcademic = parsed.is_academic === true;
+      academicConfidence = parsed.confidence || 0;
+      console.log(`Academic check: ${isAcademic}, confidence: ${academicConfidence}`);
+    } catch (e) {
+      console.log("Academic classification check failed, defaulting to false");
+    }
+
     return new Response(JSON.stringify({
       type, title,
       transcript: (transcript || description).slice(0, 5000),
@@ -503,6 +529,8 @@ Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code b
       source: "youtube",
       videoId,
       hasTranscript,
+      isAcademic,
+      academicConfidence,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
