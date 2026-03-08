@@ -122,7 +122,7 @@ export default function MeetingNotes() {
                 </div>
                 <div>
                   <h4 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">Notes</h4>
-                  <div className="text-sm text-foreground/80 whitespace-pre-wrap">{detail.structuredNotes}</div>
+                  <MarkdownRenderer content={detail.structuredNotes} />
                 </div>
               </div>
             </motion.div>
