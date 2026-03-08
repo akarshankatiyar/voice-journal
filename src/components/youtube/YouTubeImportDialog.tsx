@@ -57,30 +57,50 @@ export function YouTubeImportDialog() {
         createdAt: now,
       });
 
-      if (type === 'academic' && data.notes) {
+      // Handle parse_error: extract usable content from raw
+      let notes = data.notes || {};
+      if (notes.parse_error && notes.raw) {
+        try {
+          const codeBlock = notes.raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (codeBlock) {
+            notes = JSON.parse(codeBlock[1].trim());
+          } else {
+            const jsonMatch = notes.raw.match(/\{[\s\S]*"structured_notes"\s*:[\s\S]*\}/);
+            if (jsonMatch) {
+              notes = JSON.parse(jsonMatch[0]);
+            } else {
+              notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
+            }
+          }
+        } catch {
+          notes = { structured_notes: notes.raw, title: data.title, subject: 'General', key_concepts: [], summary: data.summary || '' };
+        }
+      }
+
+      if (type === 'academic') {
         addAcademicNote({
           id: `an_${Date.now()}`,
           conversationId: convId,
-          title: data.notes.title || data.title || 'YouTube Lecture',
-          subject: data.notes.subject || 'General',
-          structuredNotes: data.notes.structured_notes || '',
-          keyConcepts: data.notes.key_concepts || [],
-          summary: data.notes.summary || data.summary || '',
+          title: notes.title || data.title || 'YouTube Lecture',
+          subject: notes.subject || 'General',
+          structuredNotes: notes.structured_notes || '',
+          keyConcepts: notes.key_concepts || [],
+          summary: notes.summary || data.summary || '',
           createdAt: now,
           source: 'youtube',
           videoId: data.videoId,
         });
-      } else if (type === 'meeting' && data.notes) {
+      } else if (type === 'meeting') {
         addMeetingNote({
           id: `mn_${Date.now()}`,
           conversationId: convId,
-          title: data.notes.title || data.title || 'YouTube Meeting',
-          attendees: data.notes.attendees || [],
-          agenda: data.notes.agenda || '',
-          actionItems: (data.notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
-          decisions: data.notes.decisions || [],
-          structuredNotes: data.notes.structured_notes || '',
-          summary: data.notes.summary || data.summary || '',
+          title: notes.title || data.title || 'YouTube Meeting',
+          attendees: notes.attendees || [],
+          agenda: notes.agenda || '',
+          actionItems: (notes.action_items || []).map((a: any) => typeof a === 'string' ? a : a.task),
+          decisions: notes.decisions || [],
+          structuredNotes: notes.structured_notes || '',
+          summary: notes.summary || data.summary || '',
           createdAt: now,
         });
       }
