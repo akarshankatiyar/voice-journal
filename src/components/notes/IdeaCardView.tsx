@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface IdeaCardViewProps {
   idea: string;
