@@ -157,6 +157,11 @@ export default function Home() {
         </button>
       </motion.div>
 
+      {/* YouTube Notes Button */}
+      <motion.div variants={item}>
+        <YouTubeNotesButton />
+      </motion.div>
+
       {/* Manual Record Button (secondary) */}
       <motion.div variants={item} className="flex justify-center">
         <div className="flex flex-col items-center gap-2">
