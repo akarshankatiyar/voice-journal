@@ -9,14 +9,14 @@ import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/todays-text', icon: Calendar, label: "Today's Text" },
-  { to: '/academic-notes', icon: GraduationCap, label: 'Academic Notes' },
-  { to: '/youtube-notes', icon: Monitor, label: 'YouTube Notes' },
+  { to: '/todays-text', icon: Calendar, label: 'Daily Capture' },
+  { to: '/academic-notes', icon: GraduationCap, label: 'Study Notes' },
+  { to: '/youtube-notes', icon: Monitor, label: 'Video Notes' },
   { to: '/meeting-notes', icon: Handshake, label: 'Meeting Notes' },
-  { to: '/conversations', icon: MessageSquare, label: 'All Conversations' },
-  { to: '/tasks', icon: CheckSquare, label: 'Tasks & Reminders' },
+  { to: '/conversations', icon: MessageSquare, label: 'Memory Archive' },
+  { to: '/tasks', icon: CheckSquare, label: 'Action Items' },
   { to: '/ideas', icon: Lightbulb, label: 'Ideas Vault' },
-  { to: '/people', icon: Users, label: 'People & Contacts' },
+  { to: '/people', icon: Users, label: 'My People' },
   { to: '/health', icon: Heart, label: 'Health Log' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping List' },
 ];
