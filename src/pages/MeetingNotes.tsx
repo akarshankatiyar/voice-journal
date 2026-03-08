@@ -30,6 +30,8 @@ export default function MeetingNotes() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const deleteMeetingNote = useConversationStore((s) => s.deleteMeetingNote);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const detail = meetingNotes.find(m => m.id === selectedId);
 
   const handleEdit = () => {
