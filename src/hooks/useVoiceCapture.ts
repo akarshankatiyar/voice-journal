@@ -129,20 +129,33 @@ export function useVoiceCapture() {
 
     rec.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
+      const msSinceRestart = Date.now() - restartTimestampRef.current;
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           const text = result[0].transcript.trim();
           if (!text) continue;
 
+          // Grace period: skip replayed audio right after a restart
+          if (msSinceRestart < RESTART_GRACE_MS) {
+            const fullTranscript = useAppStore.getState().liveTranscript;
+            const tail = fullTranscript.trim().toLowerCase().slice(-500);
+            const normalizedText = text.toLowerCase();
+            if (tail.includes(normalizedText) || tail.endsWith(normalizedText)) {
+              console.log('[VoiceCapture] Skipped replayed result within grace period:', text);
+              continue;
+            }
+          }
+
           // Check against the full transcript tail for dedup
-          if (!isDuplicateOfTail(text)) {
+          if (isDuplicateOfTail(text)) {
+            console.log('[VoiceCapture] Skipped duplicate final result:', text);
+          } else {
             const nonOverlapping = getNonOverlappingText(text);
             if (nonOverlapping.trim()) {
               appendTranscript(nonOverlapping);
             } else {
-              // Even if fully overlapping, still append the original
-              // to avoid losing genuinely repeated speech
               appendTranscript(result[0].transcript);
             }
           }
