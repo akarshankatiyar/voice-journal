@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2 } from 'lucide-react';
 import type { AcademicNote } from '@/data/mockData';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface Props {
   detail: AcademicNote | null;
@@ -52,9 +53,7 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit }: Props) {
                 <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{c}</span>
               ))}
             </div>
-            <div className="prose prose-invert prose-sm max-w-none font-body text-foreground/80 whitespace-pre-wrap">
-              {detail.structuredNotes}
-            </div>
+            <MarkdownRenderer content={detail.structuredNotes} />
           </motion.div>
         </motion.div>
       )}

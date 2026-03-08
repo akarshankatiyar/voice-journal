@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -59,7 +60,7 @@ export default function MeetingNotes() {
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" />{note.attendees.join(', ')}</span>
                 <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" />{note.actionItems.length} actions</span>
               </div>
-              <p className="text-sm text-muted-foreground">{note.summary}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{note.summary}</p>
             </motion.div>
           ))}
         </div>
@@ -93,7 +94,7 @@ export default function MeetingNotes() {
                   <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground p-2"><X className="h-5 w-5" /></button>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{detail.summary}</p>
+              <MarkdownRenderer content={detail.summary} showToc={false} className="mb-4" />
               <div className="space-y-4">
                 <div>
                   <h4 className="text-xs font-body font-medium text-primary uppercase tracking-wider mb-2">Attendees</h4>
@@ -121,7 +122,7 @@ export default function MeetingNotes() {
                 </div>
                 <div>
                   <h4 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">Notes</h4>
-                  <div className="text-sm text-foreground/80 whitespace-pre-wrap">{detail.structuredNotes}</div>
+                  <MarkdownRenderer content={detail.structuredNotes} />
                 </div>
               </div>
             </motion.div>

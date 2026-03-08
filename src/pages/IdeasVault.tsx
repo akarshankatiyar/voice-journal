@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Lightbulb, Edit2, Save, X } from 'lucide-react';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -104,7 +105,7 @@ export default function IdeasVault() {
                 </div>
               </div>
               <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 capitalize">{detail.category}</span>
-              <p className="text-sm text-foreground mt-3">{detail.ideaText}</p>
+              <MarkdownRenderer content={detail.ideaText} showToc={false} className="mt-3" />
               <p className="text-xs text-muted-foreground mt-3">{new Date(detail.createdAt).toLocaleDateString()}</p>
             </motion.div>
           </motion.div>

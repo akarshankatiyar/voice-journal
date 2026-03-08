@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface IdeaCardViewProps {
   idea: string;
@@ -36,9 +37,7 @@ export function IdeaCardView({ idea, category, date }: IdeaCardViewProps) {
         </span>
         <span className="text-xs font-body text-muted-foreground">{date}</span>
       </div>
-      <p className="font-display text-base text-foreground" style={{ fontFamily: "'Dancing Script', cursive" }}>
-        {idea}
-      </p>
+      <MarkdownRenderer content={idea} showToc={false} />
     </motion.div>
   );
 }
