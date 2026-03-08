@@ -80,12 +80,12 @@ export default function Home() {
 
   const hasData = conversations.length > 0;
 
-  const handleMicClick = async () => {
+  const handleMicClick = () => {
     if (isRecording) {
       const transcript = stopRecording();
       if (transcript && transcript.length > 10) processAndSave(transcript);
     } else {
-      await startRecording((transcript) => processAndSave(transcript));
+      startRecording((transcript) => processAndSave(transcript));
     }
   };
 
