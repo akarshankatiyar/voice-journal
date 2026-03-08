@@ -11,8 +11,10 @@ import { resolveNotes } from '@/utils/parseNotes';
 
 type Stage = 'idle' | 'fetching' | 'generating' | 'done';
 
-export function YouTubeImportDialog() {
-  const [open, setOpen] = useState(false);
+export function YouTubeImportDialog({ open: externalOpen, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [url, setUrl] = useState('');
   const [stage, setStage] = useState<Stage>('idle');
   const [showAcademicBanner, setShowAcademicBanner] = useState(false);
