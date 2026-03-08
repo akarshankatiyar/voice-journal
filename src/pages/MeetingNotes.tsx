@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockMeetingNotes } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Handshake, Users, CheckCircle, X, Edit2, Save } from 'lucide-react';
 
@@ -11,7 +11,8 @@ export default function MeetingNotes() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(null);
-  const detail = mockMeetingNotes.find(m => m.id === selectedId);
+  const meetingNotes = useConversationStore((s) => s.meetingNotes);
+  const detail = meetingNotes.find(m => m.id === selectedId);
 
   const handleEdit = () => {
     if (detail) {
@@ -39,11 +40,11 @@ export default function MeetingNotes() {
         <p className="text-sm text-muted-foreground">AI-structured notes from your meetings</p>
       </motion.div>
 
-      {mockMeetingNotes.length === 0 ? (
+      {meetingNotes.length === 0 ? (
         <EmptyState icon={<Handshake className="h-12 w-12" />} title="No meeting notes" description="Record a meeting and AI will auto-generate structured notes." />
       ) : (
         <div className="space-y-4">
-          {mockMeetingNotes.map(note => (
+          {meetingNotes.map(note => (
             <motion.div
               key={note.id}
               variants={item}

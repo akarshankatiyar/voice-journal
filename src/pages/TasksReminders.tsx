@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockTasks } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CheckSquare, Plus, Clock, Edit2, Save, X } from 'lucide-react';
 
@@ -8,16 +8,13 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
 export default function TasksReminders() {
-  const [tasks, setTasks] = useState(mockTasks);
+  const tasks = useConversationStore((s) => s.tasks);
+  const toggleTask = useConversationStore((s) => s.toggleTask);
   const [showCompleted, setShowCompleted] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>(null);
   const pending = tasks.filter(t => !t.isDone);
   const completed = tasks.filter(t => t.isDone);
-
-  const toggleTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, isDone: !t.isDone } : t));
-  };
 
   const handleEdit = (task: any) => {
     setEditData({ ...task });
@@ -25,9 +22,7 @@ export default function TasksReminders() {
   };
 
   const handleSave = () => {
-    if (editData) {
-      setTasks(prev => prev.map(t => t.id === editingId ? editData : t));
-    }
+    // TODO: update task in store
     setEditingId(null);
     setEditData(null);
   };

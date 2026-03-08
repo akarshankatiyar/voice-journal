@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockIdeas } from '@/data/mockData';
+import { useConversationStore } from '@/store/useConversationStore';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Lightbulb, Edit2, Save, X } from 'lucide-react';
 
@@ -13,7 +13,8 @@ export default function IdeasVault() {
   const [filter, setFilter] = useState('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>(null);
-  const filtered = filter === 'all' ? mockIdeas : mockIdeas.filter(i => i.category === filter);
+  const ideas = useConversationStore((s) => s.ideas);
+  const filtered = filter === 'all' ? ideas : ideas.filter(i => i.category === filter);
 
   const handleEdit = (idea: any) => {
     setEditData({ ...idea });
@@ -30,7 +31,7 @@ export default function IdeasVault() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
         <h1 className="font-display text-2xl text-foreground mb-1">Ideas Vault</h1>
-        <p className="text-sm text-muted-foreground">{mockIdeas.length} ideas captured</p>
+        <p className="text-sm text-muted-foreground">{ideas.length} ideas captured</p>
       </motion.div>
 
       <motion.div variants={item} className="flex gap-2">
