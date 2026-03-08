@@ -34,6 +34,8 @@ export interface AcademicNote {
   keyConcepts: string[];
   summary: string;
   createdAt: string;
+  source?: 'voice' | 'youtube';
+  videoId?: string;
 }
 
 export interface MeetingNote {
