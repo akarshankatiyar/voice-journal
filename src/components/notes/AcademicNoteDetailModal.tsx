@@ -136,20 +136,23 @@ export function AcademicNoteDetailModal({ detail, onClose, onEdit, onDelete }: P
       </AnimatePresence>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent className="z-[70]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This note will be permanently deleted and cannot be restored.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogPortal>
+          <AlertDialogOverlay className="z-[65]" />
+          <AlertDialogContent className="z-[70]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This note will be permanently deleted and cannot be restored.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogPortal>
       </AlertDialog>
     </>
   );
