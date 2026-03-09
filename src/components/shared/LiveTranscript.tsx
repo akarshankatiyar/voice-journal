@@ -54,7 +54,7 @@ export function LiveTranscript() {
       <div className="flex items-center gap-2 mb-3">
         {isRecording && <span className="h-2 w-2 rounded-full bg-recording-red animate-pulse-recording" />}
         <span className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider">
-          {isRecording ? 'Live Transcript' : 'Last Recording'}
+          {isRecording ? (captureMode === 'device' ? '📡 Lecture Capture' : 'Live Transcript') : 'Last Recording'}
         </span>
         {isRecording && silenceSeconds > 5 && (
           <span className="ml-auto text-[10px] font-body text-muted-foreground">
