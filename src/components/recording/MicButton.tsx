@@ -12,14 +12,14 @@ export function MicButton({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
   const dim = size === 'lg' ? 'h-24 w-24' : 'h-14 w-14';
   const iconSize = size === 'lg' ? 'h-8 w-8' : 'h-5 w-5';
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isRecording) {
       const transcript = stopRecording();
       if (transcript && transcript.length > 10) {
         processAndSave(transcript);
       }
     } else {
-      startRecording((transcript) => {
+      await startRecording((transcript) => {
         processAndSave(transcript);
       });
     }
