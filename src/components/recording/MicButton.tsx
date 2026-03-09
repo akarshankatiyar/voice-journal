@@ -19,9 +19,7 @@ export function MicButton({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
         processAndSave(transcript);
       }
     } else {
-      await startRecording((transcript) => {
-        processAndSave(transcript);
-      });
+      await startRecording();
     }
   };
 
