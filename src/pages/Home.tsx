@@ -9,6 +9,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
+import { useDeviceCapture } from '@/hooks/useDeviceCapture';
 import { useAutoProcess } from '@/hooks/useAutoProcess';
 import { ArrowRight, Sparkles, RefreshCw, GraduationCap, Users, CheckSquare, Lightbulb, Calendar, Brain, Monitor, Quote } from 'lucide-react';
 import { Link } from 'react-router-dom';
