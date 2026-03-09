@@ -17,6 +17,7 @@ export default function YouTubeNotes() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('All');
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const academicNotes = useConversationStore((s) => s.academicNotes);
   const conversations = useConversationStore((s) => s.conversations);
   const deleteAcademicNote = useConversationStore((s) => s.deleteAcademicNote);
@@ -48,11 +49,19 @@ export default function YouTubeNotes() {
       <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl text-foreground mb-1 flex items-center gap-2">
-            YouTube Notes
+            Video Notes
           </h1>
           <p className="text-sm text-muted-foreground">AI-generated notes from YouTube videos</p>
         </div>
-        <YouTubeImportDialog />
+        <button
+          onClick={() => setImportOpen(true)}
+          className="flex flex-col items-center gap-1"
+        >
+          <div className="h-11 w-11 rounded-full border-2 border-destructive/30 bg-destructive/5 flex items-center justify-center hover:bg-destructive/10 transition-colors">
+            <img src="/images/youtube-icon.svg" alt="YouTube" className="h-6 w-6 object-contain" />
+          </div>
+          <span className="text-[10px] font-body text-muted-foreground">Import</span>
+        </button>
       </motion.div>
 
       {/* Search */}
@@ -162,6 +171,8 @@ export default function YouTubeNotes() {
           setSelectedNote(null);
         }}
       />
+
+      <YouTubeImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </motion.div>
   );
 }
