@@ -8,6 +8,8 @@ import { YouTubeImportDialog } from '@/components/youtube/YouTubeImportDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+const YT_ICON = '/images/youtube-icon.svg';
+
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
