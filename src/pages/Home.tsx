@@ -9,6 +9,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useAIProcessing } from '@/hooks/useAIProcessing';
 import { useConversationStore } from '@/store/useConversationStore';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
+import { useDeviceCapture } from '@/hooks/useDeviceCapture';
 import { useAutoProcess } from '@/hooks/useAutoProcess';
 import { ArrowRight, Sparkles, RefreshCw, GraduationCap, Users, CheckSquare, Lightbulb, Calendar, Brain, Monitor, Quote } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -39,7 +40,9 @@ const typeColorBorder: Record<string, string> = {
 
 export default function Home() {
   const isRecording = useAppStore((s) => s.isRecording);
+  const captureMode = useAppStore((s) => s.captureMode);
   const liveTranscript = useAppStore((s) => s.liveTranscript);
+  const setCaptureMode = useAppStore((s) => s.setCaptureMode);
   const { fetchDailySummary } = useAIProcessing();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
@@ -47,6 +50,7 @@ export default function Home() {
   const meetingNotes = useConversationStore((s) => s.meetingNotes);
   const ideas = useConversationStore((s) => s.ideas);
   const { startRecording, stopRecording } = useVoiceCapture();
+  const { startDeviceCapture, stopDeviceCapture } = useDeviceCapture();
   const { processAndSave } = useAutoProcess();
 
   const pendingTasks = tasks.filter(t => !t.isDone).length;
@@ -81,11 +85,24 @@ export default function Home() {
   const hasData = conversations.length > 0;
 
   const handleMicClick = () => {
-    if (isRecording) {
+    if (isRecording && captureMode === 'mic') {
+      setCaptureMode(null);
       const transcript = stopRecording();
       if (transcript && transcript.length > 10) processAndSave(transcript);
-    } else {
+    } else if (!isRecording) {
+      setCaptureMode('mic');
       startRecording((transcript) => processAndSave(transcript));
+    }
+  };
+
+  const handleLectureClick = () => {
+    if (isRecording && captureMode === 'device') {
+      setCaptureMode(null);
+      const transcript = stopDeviceCapture();
+      if (transcript && transcript.length > 10) processAndSave(transcript);
+    } else if (!isRecording) {
+      setCaptureMode('device');
+      startDeviceCapture((transcript) => processAndSave(transcript));
     }
   };
 
@@ -115,32 +132,47 @@ export default function Home() {
 
       {/* Capture Bar */}
       <motion.div variants={item}>
-        <div className="rounded-2xl overflow-hidden border border-primary/10" style={{
-          background: 'linear-gradient(90deg, hsl(215 100% 50% / 0.08) 0%, hsl(0 100% 50% / 0.08) 100%)'
+       <div className="rounded-2xl overflow-hidden border border-primary/10" style={{
+          background: 'linear-gradient(90deg, hsl(215 100% 50% / 0.08) 0%, hsl(270 60% 50% / 0.08) 50%, hsl(0 100% 50% / 0.08) 100%)'
         }}>
           <div className="flex items-stretch">
-            {/* Record half */}
+            {/* Record mic */}
             <button
               onClick={handleMicClick}
-              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
+              disabled={isRecording && captureMode !== 'mic'}
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-2 sm:px-4 hover:bg-primary/5 transition-colors min-w-0 disabled:opacity-40"
             >
-              <span className={`text-xl sm:text-2xl ${isRecording ? 'animate-pulse' : ''}`}>🎙️</span>
-              <span className="font-display text-sm sm:text-base text-foreground truncate">
-                {isRecording ? 'Stop' : 'Record'}
+              <span className={`text-xl sm:text-2xl ${isRecording && captureMode === 'mic' ? 'animate-pulse' : ''}`}>🎙️</span>
+              <span className="font-display text-xs sm:text-sm text-foreground truncate">
+                {isRecording && captureMode === 'mic' ? 'Stop' : 'Record'}
               </span>
-              {isRecording && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />}
+              {isRecording && captureMode === 'mic' && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />}
             </button>
 
-            {/* Divider */}
             <div className="w-px bg-primary/10 my-3" />
 
-            {/* Video to Notes — opens YouTube import */}
+            {/* Lecture Mode — capture device audio */}
+            <button
+              onClick={handleLectureClick}
+              disabled={isRecording && captureMode !== 'device'}
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-2 sm:px-4 hover:bg-primary/5 transition-colors min-w-0 disabled:opacity-40"
+            >
+              <Monitor className={`h-5 w-5 sm:h-6 sm:w-6 shrink-0 ${isRecording && captureMode === 'device' ? 'text-destructive animate-pulse' : 'text-primary'}`} />
+              <span className="font-display text-xs sm:text-sm text-foreground truncate">
+                {isRecording && captureMode === 'device' ? 'Stop' : 'Lecture'}
+              </span>
+              {isRecording && captureMode === 'device' && <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />}
+            </button>
+
+            <div className="w-px bg-primary/10 my-3" />
+
+            {/* Video to Notes */}
             <button
               onClick={() => setYoutubeOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6 hover:bg-primary/5 transition-colors min-w-0"
+              className="flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-2 sm:px-4 hover:bg-primary/5 transition-colors min-w-0"
             >
               <img src="/images/youtube-icon.svg" alt="YouTube" className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
-              <span className="font-display text-sm sm:text-base text-foreground truncate">Video to Notes</span>
+              <span className="font-display text-xs sm:text-sm text-foreground truncate">Video</span>
             </button>
           </div>
         </div>
