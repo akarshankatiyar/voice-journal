@@ -171,6 +171,8 @@ export default function YouTubeNotes() {
           setSelectedNote(null);
         }}
       />
+
+      <YouTubeImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </motion.div>
   );
 }
