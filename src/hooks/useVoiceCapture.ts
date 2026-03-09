@@ -9,7 +9,7 @@ interface SpeechRecognitionEvent {
 const SILENCE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 const RESTART_DELAY_MS = 0; // no delay — continuous listening
 const NO_SPEECH_RESTART_DELAY_MS = 0; // no delay — continuous listening
-const RESTART_GRACE_MS = 200; // ignore replayed results within this window after restart
+const RESTART_GRACE_MS = 0; // no grace period — accept all results immediately
 
 export function useVoiceCapture() {
   const { setRecording, appendTranscript, setInterimText, clearTranscript } = useAppStore();
