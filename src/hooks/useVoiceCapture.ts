@@ -3,7 +3,6 @@ import { useAppStore } from '@/store/useAppStore';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const CHUNK_INTERVAL_MS = 5_000;       // send a chunk every 5 s
-const SILENCE_TIMEOUT_MS = 2 * 60 * 1000; // auto-stop after 2 min silence
 const SILENCE_VOLUME_THRESHOLD = 0.01; // RMS below this → silence
 const LANGUAGE = 'hi';                 // Hindi / Hinglish / English
 
@@ -34,24 +33,8 @@ export function useVoiceCapture() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onAutoStopRef = useRef<((transcript: string) => void) | null>(null);
   const wantActiveRef = useRef(false);
   const pendingChunksRef = useRef<Promise<void>[]>([]);
-
-  // ── Silence timer ─────────────────────────────────────────────────────────
-
-  const resetSilenceTimer = useCallback(() => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = setTimeout(() => {
-      const transcript = useAppStore.getState().liveTranscript.trim();
-      if (transcript.length > 10 && onAutoStopRef.current) {
-        onAutoStopRef.current(transcript);
-      }
-      useAppStore.getState().clearTranscript();
-      resetSilenceTimer();
-    }, SILENCE_TIMEOUT_MS);
-  }, []);
 
   // ── Send one chunk to Groq via edge function ──────────────────────────────
 
@@ -83,29 +66,26 @@ export function useVoiceCapture() {
       const { transcript } = await res.json();
       if (transcript && transcript.trim().length > 0) {
         appendTranscript(transcript.trim());
-        resetSilenceTimer();
       }
     } catch (err) {
       console.warn('[VoiceCapture] chunk send failed:', err);
     }
-  }, [appendTranscript, resetSilenceTimer]);
+  }, [appendTranscript]);
 
   // ── Start recording ───────────────────────────────────────────────────────
 
-  const startRecording = useCallback(async (onAutoStop?: (transcript: string) => void) => {
+  const startRecording = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       alert('Microphone access is not supported in this browser.');
       return;
     }
 
-    onAutoStopRef.current = onAutoStop || null;
     wantActiveRef.current = true;
     pendingChunksRef.current = [];
 
     clearTranscript();
     setInterimText('');
     setRecording(true);
-    resetSilenceTimer();
 
     let stream: MediaStream;
     try {
@@ -143,17 +123,12 @@ export function useVoiceCapture() {
     };
 
     recorder.start(CHUNK_INTERVAL_MS);
-  }, [clearTranscript, setInterimText, setRecording, resetSilenceTimer, transcribeChunk]);
+  }, [clearTranscript, setInterimText, setRecording, transcribeChunk]);
 
   // ── Stop recording ────────────────────────────────────────────────────────
 
   const stopRecording = useCallback((): string => {
     wantActiveRef.current = false;
-
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
 
     // Request final chunk before stopping
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
