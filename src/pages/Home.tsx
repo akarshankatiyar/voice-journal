@@ -85,11 +85,24 @@ export default function Home() {
   const hasData = conversations.length > 0;
 
   const handleMicClick = () => {
-    if (isRecording) {
+    if (isRecording && captureMode === 'mic') {
+      setCaptureMode(null);
       const transcript = stopRecording();
       if (transcript && transcript.length > 10) processAndSave(transcript);
-    } else {
+    } else if (!isRecording) {
+      setCaptureMode('mic');
       startRecording((transcript) => processAndSave(transcript));
+    }
+  };
+
+  const handleLectureClick = () => {
+    if (isRecording && captureMode === 'device') {
+      setCaptureMode(null);
+      const transcript = stopDeviceCapture();
+      if (transcript && transcript.length > 10) processAndSave(transcript);
+    } else if (!isRecording) {
+      setCaptureMode('device');
+      startDeviceCapture((transcript) => processAndSave(transcript));
     }
   };
 
