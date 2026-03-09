@@ -92,7 +92,7 @@ export default function SharedNote() {
         </motion.div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Generated with EchoMind — AI-powered voice notes
+          Generated with Shravix AI — AI-powered voice notes
         </p>
       </div>
     </div>
