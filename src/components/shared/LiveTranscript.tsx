@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 const SILENCE_TIMEOUT_S = 120; // 2 minutes
 
 export function LiveTranscript() {
-  const { liveTranscript, interimText, isRecording } = useAppStore();
+  const { liveTranscript, interimText, isRecording, captureMode } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [silenceSeconds, setSilenceSeconds] = useState(0);
   const lastActivityRef = useRef(Date.now());
