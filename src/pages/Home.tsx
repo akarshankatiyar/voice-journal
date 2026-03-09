@@ -40,7 +40,9 @@ const typeColorBorder: Record<string, string> = {
 
 export default function Home() {
   const isRecording = useAppStore((s) => s.isRecording);
+  const captureMode = useAppStore((s) => s.captureMode);
   const liveTranscript = useAppStore((s) => s.liveTranscript);
+  const setCaptureMode = useAppStore((s) => s.setCaptureMode);
   const { fetchDailySummary } = useAIProcessing();
   const conversations = useConversationStore((s) => s.conversations);
   const tasks = useConversationStore((s) => s.tasks);
@@ -48,6 +50,7 @@ export default function Home() {
   const meetingNotes = useConversationStore((s) => s.meetingNotes);
   const ideas = useConversationStore((s) => s.ideas);
   const { startRecording, stopRecording } = useVoiceCapture();
+  const { startDeviceCapture, stopDeviceCapture } = useDeviceCapture();
   const { processAndSave } = useAutoProcess();
 
   const pendingTasks = tasks.filter(t => !t.isDone).length;
