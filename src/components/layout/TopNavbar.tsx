@@ -108,7 +108,7 @@ export function TopNavbar() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">Unlock the full power of Shravix AI with Premium features:</p>
+            <p className="text-sm text-muted-foreground">Unlock the full power of EchoMind with Premium features:</p>
             <ul className="space-y-2 text-sm text-foreground">
               <li className="flex items-center gap-2">✨ Unlimited AI processing</li>
               <li className="flex items-center gap-2">📊 Advanced analytics & insights</li>

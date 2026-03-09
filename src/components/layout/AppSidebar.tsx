@@ -51,7 +51,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-between px-5 h-16 border-b border-primary/10">
           <div className="flex items-center gap-2">
             <Mic className="h-5 w-5 text-primary" />
-            <span className="font-display text-lg text-primary font-semibold tracking-wide">Shravix AI</span>
+            <span className="font-display text-lg text-primary font-semibold tracking-wide">EchoMind</span>
           </div>
           <button onClick={toggleSidebar} className="lg:hidden text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />

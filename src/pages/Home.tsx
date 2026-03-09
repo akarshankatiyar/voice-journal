@@ -156,7 +156,7 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
             </span>
-            <span className="font-display text-lg sm:text-xl text-foreground font-bold">Shravix AI is Active</span>
+            <span className="font-display text-lg sm:text-xl text-foreground font-bold">EchoMind is Active</span>
           </div>
           {lastCaptured && (
             <span className="text-[10px] font-body text-muted-foreground bg-card/60 px-2 py-1 rounded-full border border-primary/5">
