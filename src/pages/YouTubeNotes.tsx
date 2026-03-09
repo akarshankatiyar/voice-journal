@@ -17,6 +17,7 @@ export default function YouTubeNotes() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('All');
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const academicNotes = useConversationStore((s) => s.academicNotes);
   const conversations = useConversationStore((s) => s.conversations);
   const deleteAcademicNote = useConversationStore((s) => s.deleteAcademicNote);
