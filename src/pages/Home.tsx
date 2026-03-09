@@ -85,7 +85,7 @@ export default function Home() {
       const transcript = stopRecording();
       if (transcript && transcript.length > 10) processAndSave(transcript);
     } else {
-      startRecording((transcript) => processAndSave(transcript));
+      startRecording();
     }
   };
 
