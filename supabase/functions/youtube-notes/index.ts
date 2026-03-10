@@ -387,7 +387,12 @@ serve(async (req) => {
       transcript = await fetchTranscriptFromTracks(captionTracks);
     }
 
-    // STEP 3: Try direct timedtext API as fallback
+    // STEP 3: Try InnerTube API (youtube-transcript-api method)
+    if (!transcript) {
+      transcript = await fetchViaInnerTube(videoId);
+    }
+
+    // STEP 4: Try direct timedtext API as last resort
     if (!transcript) {
       transcript = await fetchViaTimedtext(videoId);
     }
