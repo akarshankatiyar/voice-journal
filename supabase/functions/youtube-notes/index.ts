@@ -398,14 +398,13 @@ serve(async (req) => {
     }
 
     const hasTranscript = !!transcript;
-    const contentForAI = transcript || rawMetadata;
 
     if (!hasTranscript) {
-      console.log("⚠️ No transcript available. Using description + metadata for notes.");
-      if (contentForAI.length < 30) {
-        throw new Error("Could not extract enough content from this video. Try a video with CC/subtitles enabled.");
-      }
+      console.log("⚠️ No transcript available.");
+      throw new Error("Could not extract transcript from this video. The video may not have captions/subtitles enabled. Please try a video with CC enabled.");
     }
+
+    const contentForAI = transcript;
 
     console.log(`Content for AI: ${contentForAI.length} chars (transcript: ${hasTranscript})`);
 
