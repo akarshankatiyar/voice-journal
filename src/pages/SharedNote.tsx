@@ -54,7 +54,7 @@ export default function SharedNote() {
         {/* Header */}
         <div className="flex items-center gap-2 mb-6">
           <Mic className="h-5 w-5 text-primary" />
-          <span className="font-display text-lg text-primary font-semibold">EchoMind</span>
+          <span className="font-display text-lg text-primary font-semibold">Shravix AI</span>
           <span className="text-xs text-muted-foreground ml-auto">Shared Note</span>
         </div>
 
@@ -92,7 +92,7 @@ export default function SharedNote() {
         </motion.div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Generated with EchoMind — AI-powered voice notes
+          Generated with Shravix AI — AI-powered voice notes
         </p>
       </div>
     </div>
