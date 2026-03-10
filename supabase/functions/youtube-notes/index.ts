@@ -250,153 +250,19 @@ async function fetchTranscriptFromTracks(tracks: any[]): Promise<string | null> 
   return null;
 }
 
-// ===== STEP 3: InnerTube API (same method as youtube-transcript-api) =====
-function encodeVideoIdParams(videoId: string): string {
-  // Protobuf-like encoding: field 1 (string) = videoId
-  // Field 1, wire type 2 (length-delimited) = 0x0a, length = 0x0b (11 bytes)
-  const bytes = new Uint8Array(2 + videoId.length);
-  bytes[0] = 0x0a; // field 1, wire type 2
-  bytes[1] = videoId.length; // length
-  for (let i = 0; i < videoId.length; i++) {
-    bytes[2 + i] = videoId.charCodeAt(i);
-  }
-  // Base64 encode
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-async function fetchViaInnerTube(videoId: string): Promise<string | null> {
-  console.log("Step 3: Trying InnerTube transcript API...");
-  
-  const params = encodeVideoIdParams(videoId);
-  console.log(`  Encoded params: ${params}`);
-
-  const body = {
-    context: {
-      client: {
-        clientName: "WEB",
-        clientVersion: "2.20250310.01.00",
-        hl: "en",
-        gl: "US",
-      },
-    },
-    params,
-  };
-
-  try {
-    const res = await fetch("https://www.youtube.com/youtubei/v1/get_transcript", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": UA,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.log(`  InnerTube API returned ${res.status}: ${errText.slice(0, 200)}`);
-      return null;
-    }
-
-    const data = await res.json();
-    console.log(`  InnerTube response keys: ${Object.keys(data).join(", ")}`);
-    
-    // Navigate the nested response structure - multiple possible paths
-    const actions = data?.actions;
-    if (!actions?.length) {
-      console.log("  No actions in InnerTube response");
-      return null;
-    }
-
-    let segments: string[] = [];
-
-    // Path 1: transcriptSearchPanelRenderer
-    const panel = actions[0]?.updateEngagementPanelAction?.content?.transcriptRenderer;
-    const searchPanel = panel?.content?.transcriptSearchPanelRenderer;
-    const segList = searchPanel?.body?.transcriptSegmentListRenderer?.initialSegments;
-
-    if (segList?.length) {
-      for (const seg of segList) {
-        const text = seg?.transcriptSegmentRenderer?.snippet?.runs
-          ?.map((r: any) => r.text)?.join("") || "";
-        if (text.trim()) segments.push(text.trim());
-      }
-    }
-
-    // Path 2: transcriptBodyRenderer
-    if (!segments.length) {
-      const cueGroups = panel?.body?.transcriptBodyRenderer?.cueGroups;
-      if (cueGroups?.length) {
-        for (const group of cueGroups) {
-          const cues = group?.transcriptCueGroupRenderer?.cues;
-          if (cues) {
-            for (const cue of cues) {
-              const text = cue?.transcriptCueRenderer?.cue?.simpleText || "";
-              if (text.trim()) segments.push(text.trim());
-            }
-          }
-        }
-      }
-    }
-
-    // Path 3: Deep search for any text segments
-    if (!segments.length) {
-      const dataStr = JSON.stringify(data);
-      const textMatches = dataStr.match(/"simpleText"\s*:\s*"([^"]{2,})"/g);
-      if (textMatches && textMatches.length > 10) {
-        for (const m of textMatches) {
-          const val = m.match(/"simpleText"\s*:\s*"([^"]+)"/);
-          if (val && val[1].length > 1 && !val[1].match(/^\d+:\d+/)) {
-            segments.push(decodeHtmlEntities(val[1]));
-          }
-        }
-      }
-    }
-
-    if (segments.length > 0) {
-      const transcript = segments.join(" ");
-      if (transcript.length > 50) {
-        console.log(`  ✅ InnerTube transcript: ${transcript.length} chars (${segments.length} segments)`);
-        return cleanTranscript(transcript);
-      }
-    }
-
-    console.log(`  InnerTube returned no usable segments`);
-    return null;
-  } catch (e) {
-    console.log(`  InnerTube error: ${e}`);
-    return null;
-  }
-}
-
-// ===== STEP 4: Try direct timedtext API (with ASR support) =====
+// ===== STEP 3: Try direct timedtext API =====
 async function fetchViaTimedtext(videoId: string): Promise<string | null> {
-  console.log("Step 4: Trying direct timedtext API...");
-  // Try both manual and auto-generated captions
-  const attempts = [
-    { lang: "en", kind: "" },
-    { lang: "en", kind: "asr" },
-    { lang: "en-US", kind: "" },
-    { lang: "a.en", kind: "" },
-    { lang: "hi", kind: "" },
-    { lang: "hi", kind: "asr" },
-    { lang: "en-IN", kind: "" },
-    { lang: "en-IN", kind: "asr" },
-  ];
-  for (const { lang, kind } of attempts) {
+  console.log("Step 3: Trying direct timedtext API...");
+  const langs = ["en", "en-US", "a.en", "hi", "en-IN"];
+  for (const lang of langs) {
     try {
-      let url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
-      if (kind) url += `&kind=${kind}`;
+      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
       const res = await fetch(url, { headers: { "User-Agent": UA } });
       if (res.ok) {
         const xml = await res.text();
         const text = extractTextFromXml(xml);
         if (text.length > 50) {
-          console.log(`  ✅ timedtext worked (lang=${lang}, kind=${kind}): ${text.length} chars`);
+          console.log(`  ✅ timedtext worked (lang=${lang}): ${text.length} chars`);
           return cleanTranscript(text);
         }
       }
@@ -405,52 +271,6 @@ async function fetchViaTimedtext(videoId: string): Promise<string | null> {
     }
   }
   return null;
-}
-
-// ===== STEP 5: Extract captions via page's player response baseUrl =====
-async function fetchViaCaptionTrackUrls(videoId: string): Promise<string | null> {
-  console.log("Step 5: Trying to fetch caption track URLs from player config...");
-  try {
-    // Fetch the embed page which sometimes has different caption data
-    const embedRes = await fetch(`https://www.youtube.com/embed/${videoId}`, {
-      headers: { "User-Agent": UA },
-    });
-    if (!embedRes.ok) return null;
-    const html = await embedRes.text();
-    
-    // Look for caption track URLs in the embed page
-    const captionUrlMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
-    if (captionUrlMatch) {
-      try {
-        const tracks = JSON.parse(captionUrlMatch[1]);
-        if (tracks.length > 0) {
-          const track = tracks.find((t: any) => t.languageCode === "en") 
-            || tracks.find((t: any) => t.languageCode === "hi")
-            || tracks[0];
-          if (track?.baseUrl) {
-            let captionUrl = decodeHtmlEntities(track.baseUrl);
-            if (!captionUrl.includes("fmt=")) captionUrl += "&fmt=srv3";
-            console.log(`  Found caption URL for lang=${track.languageCode}`);
-            const capRes = await fetch(captionUrl, { headers: { "User-Agent": UA } });
-            if (capRes.ok) {
-              const xml = await capRes.text();
-              const text = extractTextFromXml(xml);
-              if (text.length > 50) {
-                console.log(`  ✅ Embed caption track: ${text.length} chars`);
-                return cleanTranscript(text);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.log(`  Failed to parse embed caption tracks: ${e}`);
-      }
-    }
-    return null;
-  } catch (e) {
-    console.log(`  Embed fetch error: ${e}`);
-    return null;
-  }
 }
 
 // ===== MAIN FLOW =====
@@ -480,29 +300,20 @@ serve(async (req) => {
       transcript = await fetchTranscriptFromTracks(captionTracks);
     }
 
-    // STEP 3: Try InnerTube API (youtube-transcript-api method)
-    if (!transcript) {
-      transcript = await fetchViaInnerTube(videoId);
-    }
-
-    // STEP 4: Try direct timedtext API (with ASR auto-generated captions)
+    // STEP 3: Try direct timedtext API as fallback
     if (!transcript) {
       transcript = await fetchViaTimedtext(videoId);
     }
 
-    // STEP 5: Try embed page caption tracks
-    if (!transcript) {
-      transcript = await fetchViaCaptionTrackUrls(videoId);
-    }
-
     const hasTranscript = !!transcript;
+    const contentForAI = transcript || rawMetadata;
 
     if (!hasTranscript) {
-      console.log("⚠️ No transcript available.");
-      throw new Error("Could not extract transcript from this video. The video may not have captions/subtitles enabled. Please try a video with CC enabled.");
+      console.log("⚠️ No transcript available. Using description + metadata for notes.");
+      if (contentForAI.length < 30) {
+        throw new Error("Could not extract enough content from this video. Try a video with CC/subtitles enabled.");
+      }
     }
-
-    const contentForAI = transcript;
 
     console.log(`Content for AI: ${contentForAI.length} chars (transcript: ${hasTranscript})`);
 
@@ -526,10 +337,14 @@ serve(async (req) => {
     try { classification = JSON.parse(classContent); } catch { classification = { type: "academic" }; }
     const type = classification.type || "academic";
 
-    // Generate structured notes from TRANSCRIPT ONLY
-    const academicPrompt = `Below is the FULL TRANSCRIPT of a YouTube video. Generate notes based ONLY on what is said in the transcript. Do NOT use external knowledge or assumptions — stick strictly to the transcript content.
+    // Generate structured notes with COMPREHENSIVE prompt
+    const sourceNote = hasTranscript
+      ? "Below is the FULL TRANSCRIPT of a YouTube video. Use every detail from it."
+      : "Below is the TITLE, DESCRIPTION, KEYWORDS, and CHAPTER TITLES from a YouTube video. No transcript was available. Use your knowledge of the topic to generate comprehensive, detailed educational notes that cover the subject matter thoroughly. Expand on every concept mentioned. Generate AT LEAST 800 words of structured notes.";
 
-VIDEO TRANSCRIPT:
+    const academicPrompt = `${sourceNote}
+
+VIDEO CONTENT:
 """
 ${contentForAI.slice(0, 15000)}
 """
@@ -546,7 +361,8 @@ Generate COMPREHENSIVE, DETAILED academic notes. You MUST:
 8. Add a ## Summary section with final takeaways
 9. If the topic involves any formulas, syntax, or code, show them with **Formula:** prefix
 10. Use bullet points for lists but write full sentences for explanations
-11. ONLY include information that is explicitly mentioned in the transcript
+
+${!hasTranscript ? `CRITICAL: Since no transcript is available, use your own knowledge about "${title}" to write thorough, educational notes. Cover the topic comprehensively as if writing a study guide. Include definitions, examples, best practices, and common pitfalls. The notes should be useful even without having watched the video.` : ""}
 
 Return ONLY valid JSON (no markdown code blocks):
 {
@@ -558,9 +374,9 @@ Return ONLY valid JSON (no markdown code blocks):
   "definitions": [{"term": "term1", "definition": "detailed definition"}, ...]
 }`;
 
-    const meetingPrompt = `Below is the FULL TRANSCRIPT of a YouTube video. Generate meeting notes based ONLY on what is said in the transcript. Do NOT add external information.
+    const meetingPrompt = `${sourceNote}
 
-VIDEO TRANSCRIPT:
+VIDEO CONTENT:
 """
 ${contentForAI.slice(0, 15000)}
 """
@@ -568,12 +384,12 @@ ${contentForAI.slice(0, 15000)}
 Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code blocks):
 {
   "title": "${title}",
-  "attendees": ["speaker names if identifiable from transcript"],
-  "agenda": "What the meeting/video covers based on transcript",
+  "attendees": ["speaker names if identifiable"],
+  "agenda": "Detailed description of what the video/meeting covers",
   "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}],
-  "decisions": ["Key decisions or conclusions mentioned in transcript"],
-  "structured_notes": "Detailed notes in markdown with ## headings, bullet points, and key quotes from transcript (at least 500 words)",
-  "summary": "2-3 sentence summary of transcript content"
+  "decisions": ["Key decisions or conclusions"],
+  "structured_notes": "Detailed formatted notes in markdown with ## headings, bullet points, and key quotes (at least 500 words)",
+  "summary": "2-3 sentence summary"
 }`;
 
     // Use tool calling for reliable structured output
