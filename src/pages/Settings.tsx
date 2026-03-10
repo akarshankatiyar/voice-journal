@@ -76,7 +76,7 @@ export default function Settings() {
           <HelpCircle className="h-4 w-4 text-primary" />
           <h2 className="font-display text-base text-foreground">About</h2>
         </div>
-        <p className="text-xs text-muted-foreground">Shravix AI v1.0 — AI-powered voice notes</p>
+        <p className="text-xs text-muted-foreground">EchoMind v1.0 — AI-powered voice notes</p>
       </motion.div>
     </motion.div>
   );

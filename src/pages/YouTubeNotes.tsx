@@ -8,8 +8,6 @@ import { YouTubeImportDialog } from '@/components/youtube/YouTubeImportDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-const YT_ICON = '/images/youtube-icon.svg';
-
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
@@ -19,7 +17,6 @@ export default function YouTubeNotes() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('All');
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
   const academicNotes = useConversationStore((s) => s.academicNotes);
   const conversations = useConversationStore((s) => s.conversations);
   const deleteAcademicNote = useConversationStore((s) => s.deleteAcademicNote);
@@ -42,6 +39,7 @@ export default function YouTubeNotes() {
   const getConversation = (convId: string) => conversations.find(c => c.id === convId);
 
   const handleMoveToAcademic = (noteId: string) => {
+    // Note is already in academic notes store, just toast confirmation
     toast.success('Note is saved in Academic Notes!');
   };
 
@@ -50,20 +48,11 @@ export default function YouTubeNotes() {
       <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl text-foreground mb-1 flex items-center gap-2">
-            Video Notes
+            YouTube Notes
           </h1>
           <p className="text-sm text-muted-foreground">AI-generated notes from YouTube videos</p>
         </div>
-        <button
-          onClick={() => setImportOpen(true)}
-          className="flex flex-col items-center gap-1.5"
-        >
-          <div className="h-12 w-12 rounded-full border-2 border-destructive/30 bg-destructive/5 flex items-center justify-center hover:bg-destructive/10 transition-colors">
-            <img src={YT_ICON} alt="YouTube" className="h-6 w-6 object-contain" />
-          </div>
-          <span className="text-[10px] font-body text-muted-foreground">Import</span>
-        </button>
-        <YouTubeImportDialog open={importOpen} onOpenChange={setImportOpen} />
+        <YouTubeImportDialog />
       </motion.div>
 
       {/* Search */}
