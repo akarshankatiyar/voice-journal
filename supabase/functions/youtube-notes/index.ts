@@ -428,14 +428,10 @@ serve(async (req) => {
     try { classification = JSON.parse(classContent); } catch { classification = { type: "academic" }; }
     const type = classification.type || "academic";
 
-    // Generate structured notes with COMPREHENSIVE prompt
-    const sourceNote = hasTranscript
-      ? "Below is the FULL TRANSCRIPT of a YouTube video. Use every detail from it."
-      : "Below is the TITLE, DESCRIPTION, KEYWORDS, and CHAPTER TITLES from a YouTube video. No transcript was available. Use your knowledge of the topic to generate comprehensive, detailed educational notes that cover the subject matter thoroughly. Expand on every concept mentioned. Generate AT LEAST 800 words of structured notes.";
+    // Generate structured notes from TRANSCRIPT ONLY
+    const academicPrompt = `Below is the FULL TRANSCRIPT of a YouTube video. Generate notes based ONLY on what is said in the transcript. Do NOT use external knowledge or assumptions — stick strictly to the transcript content.
 
-    const academicPrompt = `${sourceNote}
-
-VIDEO CONTENT:
+VIDEO TRANSCRIPT:
 """
 ${contentForAI.slice(0, 15000)}
 """
@@ -452,8 +448,7 @@ Generate COMPREHENSIVE, DETAILED academic notes. You MUST:
 8. Add a ## Summary section with final takeaways
 9. If the topic involves any formulas, syntax, or code, show them with **Formula:** prefix
 10. Use bullet points for lists but write full sentences for explanations
-
-${!hasTranscript ? `CRITICAL: Since no transcript is available, use your own knowledge about "${title}" to write thorough, educational notes. Cover the topic comprehensively as if writing a study guide. Include definitions, examples, best practices, and common pitfalls. The notes should be useful even without having watched the video.` : ""}
+11. ONLY include information that is explicitly mentioned in the transcript
 
 Return ONLY valid JSON (no markdown code blocks):
 {
