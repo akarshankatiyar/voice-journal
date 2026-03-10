@@ -250,9 +250,96 @@ async function fetchTranscriptFromTracks(tracks: any[]): Promise<string | null> 
   return null;
 }
 
-// ===== STEP 3: Try direct timedtext API =====
+// ===== STEP 3: InnerTube API (same method as youtube-transcript-api) =====
+async function fetchViaInnerTube(videoId: string): Promise<string | null> {
+  console.log("Step 3: Trying InnerTube transcript API (youtube-transcript-api method)...");
+  
+  const INNERTUBE_API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+  const INNERTUBE_URL = `https://www.youtube.com/youtubei/v1/get_transcript?key=${INNERTUBE_API_KEY}`;
+  
+  const body = {
+    context: {
+      client: {
+        clientName: "WEB",
+        clientVersion: "2.20240313.05.00",
+        hl: "en",
+        gl: "US",
+      },
+    },
+    params: btoa(`\n\x0b${videoId}`),
+  };
+
+  try {
+    const res = await fetch(INNERTUBE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": UA,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      console.log(`  InnerTube API returned ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    
+    // Navigate the nested response structure
+    const actions = data?.actions;
+    if (!actions?.length) {
+      console.log("  No actions in InnerTube response");
+      return null;
+    }
+
+    const transcriptRenderer = actions[0]?.updateEngagementPanelAction
+      ?.content?.transcriptRenderer?.content?.transcriptSearchPanelRenderer
+      ?.body?.transcriptSegmentListRenderer?.initialSegments;
+    
+    // Alternative path
+    const altSegments = actions[0]?.updateEngagementPanelAction
+      ?.content?.transcriptRenderer?.body?.transcriptBodyRenderer?.cueGroups;
+
+    let segments: string[] = [];
+
+    if (transcriptRenderer?.length) {
+      for (const seg of transcriptRenderer) {
+        const text = seg?.transcriptSegmentRenderer?.snippet?.runs
+          ?.map((r: any) => r.text)?.join("") || "";
+        if (text.trim()) segments.push(text.trim());
+      }
+    } else if (altSegments?.length) {
+      for (const group of altSegments) {
+        const cues = group?.transcriptCueGroupRenderer?.cues;
+        if (cues) {
+          for (const cue of cues) {
+            const text = cue?.transcriptCueRenderer?.cue?.simpleText || "";
+            if (text.trim()) segments.push(text.trim());
+          }
+        }
+      }
+    }
+
+    if (segments.length > 0) {
+      const transcript = segments.join(" ");
+      if (transcript.length > 50) {
+        console.log(`  ✅ InnerTube transcript: ${transcript.length} chars (${segments.length} segments)`);
+        return cleanTranscript(transcript);
+      }
+    }
+
+    console.log("  InnerTube returned no usable segments");
+    return null;
+  } catch (e) {
+    console.log(`  InnerTube error: ${e}`);
+    return null;
+  }
+}
+
+// ===== STEP 4: Try direct timedtext API =====
 async function fetchViaTimedtext(videoId: string): Promise<string | null> {
-  console.log("Step 3: Trying direct timedtext API...");
+  console.log("Step 4: Trying direct timedtext API...");
   const langs = ["en", "en-US", "a.en", "hi", "en-IN"];
   for (const lang of langs) {
     try {
