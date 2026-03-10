@@ -460,9 +460,9 @@ Return ONLY valid JSON (no markdown code blocks):
   "definitions": [{"term": "term1", "definition": "detailed definition"}, ...]
 }`;
 
-    const meetingPrompt = `${sourceNote}
+    const meetingPrompt = `Below is the FULL TRANSCRIPT of a YouTube video. Generate meeting notes based ONLY on what is said in the transcript. Do NOT add external information.
 
-VIDEO CONTENT:
+VIDEO TRANSCRIPT:
 """
 ${contentForAI.slice(0, 15000)}
 """
@@ -470,12 +470,12 @@ ${contentForAI.slice(0, 15000)}
 Generate COMPREHENSIVE meeting notes. Return ONLY valid JSON (no markdown code blocks):
 {
   "title": "${title}",
-  "attendees": ["speaker names if identifiable"],
-  "agenda": "Detailed description of what the video/meeting covers",
+  "attendees": ["speaker names if identifiable from transcript"],
+  "agenda": "What the meeting/video covers based on transcript",
   "action_items": [{"task": "task text", "owner": "person", "due": "due date hint"}],
-  "decisions": ["Key decisions or conclusions"],
-  "structured_notes": "Detailed formatted notes in markdown with ## headings, bullet points, and key quotes (at least 500 words)",
-  "summary": "2-3 sentence summary"
+  "decisions": ["Key decisions or conclusions mentioned in transcript"],
+  "structured_notes": "Detailed notes in markdown with ## headings, bullet points, and key quotes from transcript (at least 500 words)",
+  "summary": "2-3 sentence summary of transcript content"
 }`;
 
     // Use tool calling for reliable structured output
