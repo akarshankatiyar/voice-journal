@@ -251,26 +251,43 @@ async function fetchTranscriptFromTracks(tracks: any[]): Promise<string | null> 
 }
 
 // ===== STEP 3: InnerTube API (same method as youtube-transcript-api) =====
+function encodeVideoIdParams(videoId: string): string {
+  // Protobuf-like encoding: field 1 (string) = videoId
+  // Field 1, wire type 2 (length-delimited) = 0x0a, length = 0x0b (11 bytes)
+  const bytes = new Uint8Array(2 + videoId.length);
+  bytes[0] = 0x0a; // field 1, wire type 2
+  bytes[1] = videoId.length; // length
+  for (let i = 0; i < videoId.length; i++) {
+    bytes[2 + i] = videoId.charCodeAt(i);
+  }
+  // Base64 encode
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 async function fetchViaInnerTube(videoId: string): Promise<string | null> {
-  console.log("Step 3: Trying InnerTube transcript API (youtube-transcript-api method)...");
+  console.log("Step 3: Trying InnerTube transcript API...");
   
-  const INNERTUBE_API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-  const INNERTUBE_URL = `https://www.youtube.com/youtubei/v1/get_transcript?key=${INNERTUBE_API_KEY}`;
-  
+  const params = encodeVideoIdParams(videoId);
+  console.log(`  Encoded params: ${params}`);
+
   const body = {
     context: {
       client: {
         clientName: "WEB",
-        clientVersion: "2.20240313.05.00",
+        clientVersion: "2.20250310.01.00",
         hl: "en",
         gl: "US",
       },
     },
-    params: btoa(`\n\x0b${videoId}`),
+    params,
   };
 
   try {
-    const res = await fetch(INNERTUBE_URL, {
+    const res = await fetch("https://www.youtube.com/youtubei/v1/get_transcript", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -280,42 +297,61 @@ async function fetchViaInnerTube(videoId: string): Promise<string | null> {
     });
 
     if (!res.ok) {
-      console.log(`  InnerTube API returned ${res.status}`);
+      const errText = await res.text().catch(() => "");
+      console.log(`  InnerTube API returned ${res.status}: ${errText.slice(0, 200)}`);
       return null;
     }
 
     const data = await res.json();
+    console.log(`  InnerTube response keys: ${Object.keys(data).join(", ")}`);
     
-    // Navigate the nested response structure
+    // Navigate the nested response structure - multiple possible paths
     const actions = data?.actions;
     if (!actions?.length) {
       console.log("  No actions in InnerTube response");
       return null;
     }
 
-    const transcriptRenderer = actions[0]?.updateEngagementPanelAction
-      ?.content?.transcriptRenderer?.content?.transcriptSearchPanelRenderer
-      ?.body?.transcriptSegmentListRenderer?.initialSegments;
-    
-    // Alternative path
-    const altSegments = actions[0]?.updateEngagementPanelAction
-      ?.content?.transcriptRenderer?.body?.transcriptBodyRenderer?.cueGroups;
-
     let segments: string[] = [];
 
-    if (transcriptRenderer?.length) {
-      for (const seg of transcriptRenderer) {
+    // Path 1: transcriptSearchPanelRenderer
+    const panel = actions[0]?.updateEngagementPanelAction?.content?.transcriptRenderer;
+    const searchPanel = panel?.content?.transcriptSearchPanelRenderer;
+    const segList = searchPanel?.body?.transcriptSegmentListRenderer?.initialSegments;
+
+    if (segList?.length) {
+      for (const seg of segList) {
         const text = seg?.transcriptSegmentRenderer?.snippet?.runs
           ?.map((r: any) => r.text)?.join("") || "";
         if (text.trim()) segments.push(text.trim());
       }
-    } else if (altSegments?.length) {
-      for (const group of altSegments) {
-        const cues = group?.transcriptCueGroupRenderer?.cues;
-        if (cues) {
-          for (const cue of cues) {
-            const text = cue?.transcriptCueRenderer?.cue?.simpleText || "";
-            if (text.trim()) segments.push(text.trim());
+    }
+
+    // Path 2: transcriptBodyRenderer
+    if (!segments.length) {
+      const cueGroups = panel?.body?.transcriptBodyRenderer?.cueGroups;
+      if (cueGroups?.length) {
+        for (const group of cueGroups) {
+          const cues = group?.transcriptCueGroupRenderer?.cues;
+          if (cues) {
+            for (const cue of cues) {
+              const text = cue?.transcriptCueRenderer?.cue?.simpleText || "";
+              if (text.trim()) segments.push(text.trim());
+            }
+          }
+        }
+      }
+    }
+
+    // Path 3: Deep search for any text segments
+    if (!segments.length) {
+      const dataStr = JSON.stringify(data);
+      const textMatches = dataStr.match(/"simpleText"\s*:\s*"([^"]{2,})"/g);
+      if (textMatches && textMatches.length > 10) {
+        for (const m of textMatches) {
+          const val = m.match(/"simpleText"\s*:\s*"([^"]+)"/);
+          if (val && val[1].length > 1 && !val[1].match(/^\d+:\d+/)) {
+            segments.push(decodeHtmlEntities(val[1]));
           }
         }
       }
@@ -329,7 +365,7 @@ async function fetchViaInnerTube(videoId: string): Promise<string | null> {
       }
     }
 
-    console.log("  InnerTube returned no usable segments");
+    console.log(`  InnerTube returned no usable segments`);
     return null;
   } catch (e) {
     console.log(`  InnerTube error: ${e}`);
@@ -337,19 +373,30 @@ async function fetchViaInnerTube(videoId: string): Promise<string | null> {
   }
 }
 
-// ===== STEP 4: Try direct timedtext API =====
+// ===== STEP 4: Try direct timedtext API (with ASR support) =====
 async function fetchViaTimedtext(videoId: string): Promise<string | null> {
   console.log("Step 4: Trying direct timedtext API...");
-  const langs = ["en", "en-US", "a.en", "hi", "en-IN"];
-  for (const lang of langs) {
+  // Try both manual and auto-generated captions
+  const attempts = [
+    { lang: "en", kind: "" },
+    { lang: "en", kind: "asr" },
+    { lang: "en-US", kind: "" },
+    { lang: "a.en", kind: "" },
+    { lang: "hi", kind: "" },
+    { lang: "hi", kind: "asr" },
+    { lang: "en-IN", kind: "" },
+    { lang: "en-IN", kind: "asr" },
+  ];
+  for (const { lang, kind } of attempts) {
     try {
-      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
+      let url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
+      if (kind) url += `&kind=${kind}`;
       const res = await fetch(url, { headers: { "User-Agent": UA } });
       if (res.ok) {
         const xml = await res.text();
         const text = extractTextFromXml(xml);
         if (text.length > 50) {
-          console.log(`  ✅ timedtext worked (lang=${lang}): ${text.length} chars`);
+          console.log(`  ✅ timedtext worked (lang=${lang}, kind=${kind}): ${text.length} chars`);
           return cleanTranscript(text);
         }
       }
@@ -358,6 +405,52 @@ async function fetchViaTimedtext(videoId: string): Promise<string | null> {
     }
   }
   return null;
+}
+
+// ===== STEP 5: Extract captions via page's player response baseUrl =====
+async function fetchViaCaptionTrackUrls(videoId: string): Promise<string | null> {
+  console.log("Step 5: Trying to fetch caption track URLs from player config...");
+  try {
+    // Fetch the embed page which sometimes has different caption data
+    const embedRes = await fetch(`https://www.youtube.com/embed/${videoId}`, {
+      headers: { "User-Agent": UA },
+    });
+    if (!embedRes.ok) return null;
+    const html = await embedRes.text();
+    
+    // Look for caption track URLs in the embed page
+    const captionUrlMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (captionUrlMatch) {
+      try {
+        const tracks = JSON.parse(captionUrlMatch[1]);
+        if (tracks.length > 0) {
+          const track = tracks.find((t: any) => t.languageCode === "en") 
+            || tracks.find((t: any) => t.languageCode === "hi")
+            || tracks[0];
+          if (track?.baseUrl) {
+            let captionUrl = decodeHtmlEntities(track.baseUrl);
+            if (!captionUrl.includes("fmt=")) captionUrl += "&fmt=srv3";
+            console.log(`  Found caption URL for lang=${track.languageCode}`);
+            const capRes = await fetch(captionUrl, { headers: { "User-Agent": UA } });
+            if (capRes.ok) {
+              const xml = await capRes.text();
+              const text = extractTextFromXml(xml);
+              if (text.length > 50) {
+                console.log(`  ✅ Embed caption track: ${text.length} chars`);
+                return cleanTranscript(text);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`  Failed to parse embed caption tracks: ${e}`);
+      }
+    }
+    return null;
+  } catch (e) {
+    console.log(`  Embed fetch error: ${e}`);
+    return null;
+  }
 }
 
 // ===== MAIN FLOW =====
