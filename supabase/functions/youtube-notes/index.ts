@@ -485,9 +485,14 @@ serve(async (req) => {
       transcript = await fetchViaInnerTube(videoId);
     }
 
-    // STEP 4: Try direct timedtext API as last resort
+    // STEP 4: Try direct timedtext API (with ASR auto-generated captions)
     if (!transcript) {
       transcript = await fetchViaTimedtext(videoId);
+    }
+
+    // STEP 5: Try embed page caption tracks
+    if (!transcript) {
+      transcript = await fetchViaCaptionTrackUrls(videoId);
     }
 
     const hasTranscript = !!transcript;
